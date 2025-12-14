@@ -66,8 +66,7 @@ Run the bot using Python:
 ```bash
 python main.py
 ```
-
-
+If successful, you will see:
 
 ```text
 ---------------------------------
