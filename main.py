@@ -17,10 +17,10 @@ def init_db():
     conn = sqlite3.connect('ctf_data.db')
     c = conn.cursor()
     
-    # Flags Table (Updated with location data for First Blood updates)
+    # Flags Table (Updated to include image_url for banners)
     c.execute('''CREATE TABLE IF NOT EXISTS flags
                  (challenge_id TEXT PRIMARY KEY, flag_text TEXT, points INTEGER, category TEXT,
-                  msg_id INTEGER, channel_id INTEGER)''')
+                  msg_id INTEGER, channel_id INTEGER, image_url TEXT)''')
     
     c.execute('''CREATE TABLE IF NOT EXISTS scores
                  (user_id INTEGER PRIMARY KEY, username TEXT, points INTEGER)''')
