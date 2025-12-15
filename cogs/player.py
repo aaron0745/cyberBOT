@@ -5,7 +5,8 @@ import sqlite3
 import time
 
 # --- CONFIGURATION ---
-LEADERBOARD_CHANNEL_ID = 1449791275720245460
+# REPLACE THIS WITH YOUR ACTUAL LEADERBOARD CHANNEL ID
+LEADERBOARD_CHANNEL_ID = 1449791275720245460 
 
 # First Blood Bonuses (0=1st place, 1=2nd place, etc.)
 BONUSES = {0: 50, 1: 25, 2: 10}
@@ -100,6 +101,46 @@ class Player(commands.Cog):
     def cog_unload(self):
         self.leaderboard_loop.cancel()
 
+    # --- HELP COMMAND (NEW) ---
+    @app_commands.command(name="help", description="Show mission instructions and commands")
+    async def help(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        player_desc = (
+            "**`/profile`**\n"
+            "View your current Rank, Score, and Capture count.\n\n"
+            "**How to Submit Flags:**\n"
+            "Go to the challenge channel and click the 🟢 **Submit Flag** button attached to the mission card.\n\n"
+            "**Leaderboard:**\n"
+            "Top agents are tracked live in the designated scoreboard channel."
+        )
+
+        embed = discord.Embed(
+            title="📚 Agent Field Manual", 
+            description="Here is how to operate the CTF system.",
+            color=discord.Color.teal()
+        )
+        embed.add_field(name="🕵️ Agent Protocols", value=player_desc, inline=False)
+
+        if interaction.user.guild_permissions.administrator:
+            admin_desc = (
+                "**`Lifecycle`**\n"
+                "`/create` - Add new challenge.\n"
+                "`/post` - Publish challenge.\n"
+                "`/edit` - Fix typos/points.\n"
+                "`/delete` - Remove challenge (Auto-refunds points).\n\n"
+                "**`Management`**\n"
+                "`/list` - See status of all challenges.\n"
+                "`/show` - Reveal hidden flag/details.\n\n"
+                "**`Database`**\n"
+                "`/export` - Download backup `.db` file.\n"
+                "`/import_db` - Restore from backup."
+            )
+            embed.add_field(name="🛡️ Admin Control Panel", value=admin_desc, inline=False)
+
+        await interaction.followup.send(embed=embed)
+
+    # --- BUTTON LISTENER (This makes restarts safe) ---
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
         if interaction.type == discord.InteractionType.component:
@@ -170,7 +211,8 @@ class Player(commands.Cog):
         
         embed.description = desc if desc else "Waiting for data..."
         embed.set_footer(text="Updates live • Global Rankings")
-        embed.set_thumbnail(url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
 
         if row:
             try:
@@ -186,7 +228,7 @@ class Player(commands.Cog):
         conn.commit()
         conn.close()
 
-    # --- CHALLENGE CARD UPDATER (Preserves Bounty & Category) ---
+    # --- CHALLENGE CARD UPDATER ---
     async def update_challenge_card(self, challenge_id):
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()

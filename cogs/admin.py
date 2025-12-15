@@ -2,6 +2,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import sqlite3
+import os
+import shutil
 
 # Must match the bonuses in player.py to deduct correctly
 BONUSES = {0: 50, 1: 25, 2: 10}
@@ -36,6 +38,100 @@ class Admin(commands.Cog):
         
         await interaction.followup.send(msg)
 
+    # --- EDIT CHALLENGE ---
+    @app_commands.command(name="edit", description="Edit a challenge (Only works if NOT posted yet)")
+    @app_commands.default_permissions(administrator=True)
+    async def edit(self, interaction: discord.Interaction, challenge_id: str, points: int = None, flag: str = None, category: str = None, image_url: str = None):
+        await interaction.response.defer(ephemeral=True)
+
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+
+        # 1. Check if challenge exists and if it is already posted
+        c.execute("SELECT msg_id FROM flags WHERE challenge_id = ?", (challenge_id,))
+        data = c.fetchone()
+
+        if not data:
+            conn.close()
+            await interaction.followup.send(f"❌ Challenge **{challenge_id}** not found.")
+            return
+
+        msg_id = data[0]
+        if msg_id is not None:
+            conn.close()
+            await interaction.followup.send(f"⚠️ Challenge **{challenge_id}** is already posted (ID: {msg_id}).\nYou must `/delete` and re-create it to avoid breaking the scoreboard.")
+            return
+
+        # 2. Build the update query dynamically
+        updates = []
+        params = []
+
+        if points is not None:
+            updates.append("points = ?")
+            params.append(points)
+        if flag is not None:
+            updates.append("flag_text = ?")
+            params.append(flag)
+        if category is not None:
+            updates.append("category = ?")
+            params.append(category)
+        if image_url is not None:
+            updates.append("image_url = ?")
+            params.append(image_url)
+
+        if not updates:
+            conn.close()
+            await interaction.followup.send("⚠️ No changes provided.")
+            return
+
+        params.append(challenge_id)
+        
+        try:
+            sql = f"UPDATE flags SET {', '.join(updates)} WHERE challenge_id = ?"
+            c.execute(sql, tuple(params))
+            conn.commit()
+            await interaction.followup.send(f"✅ Successfully updated **{challenge_id}**.")
+        except Exception as e:
+            await interaction.followup.send(f"❌ Database Error: {e}")
+        finally:
+            conn.close()
+
+    # --- SHOW CHALLENGE DETAILS ---
+    @app_commands.command(name="show", description="Show all details about a challenge")
+    @app_commands.default_permissions(administrator=True)
+    async def show(self, interaction: discord.Interaction, challenge_id: str):
+        await interaction.response.defer(ephemeral=True)
+
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+        
+        c.execute("SELECT points, category, flag_text, image_url, msg_id, channel_id FROM flags WHERE challenge_id = ?", (challenge_id,))
+        data = c.fetchone()
+        conn.close()
+
+        if not data:
+            await interaction.followup.send(f"❌ Challenge **{challenge_id}** not found.")
+            return
+
+        points, category, flag_text, image_url, msg_id, channel_id = data
+        
+        status = "🟢 Posted" if msg_id else "🔴 Unposted"
+
+        embed = discord.Embed(title=f"🔍 Details: {challenge_id}", color=discord.Color.gold())
+        embed.add_field(name="Status", value=status, inline=True)
+        embed.add_field(name="Category", value=category, inline=True)
+        embed.add_field(name="Points", value=str(points), inline=True)
+        embed.add_field(name="🚩 Flag (Hidden)", value=f"`{flag_text}`", inline=False)
+        
+        if msg_id:
+            embed.add_field(name="Post Info", value=f"Msg ID: {msg_id}\nChannel: <#{channel_id}>", inline=False)
+
+        if image_url:
+            embed.set_thumbnail(url=image_url)
+            embed.add_field(name="🖼️ Banner URL", value=f"[Link]({image_url})", inline=False)
+
+        await interaction.followup.send(embed=embed)
+
     # --- DELETE CHALLENGE ---
     @app_commands.command(name="delete", description="Remove a challenge and deduct points")
     @app_commands.default_permissions(administrator=True)
@@ -55,7 +151,6 @@ class Admin(commands.Cog):
 
         base_points, msg_id, channel_id = data
 
-        # Deduct points
         c.execute("SELECT user_id FROM solves WHERE challenge_id = ? ORDER BY timestamp ASC", (challenge_id,))
         solvers = c.fetchall()
 
@@ -66,7 +161,6 @@ class Admin(commands.Cog):
             c.execute("UPDATE scores SET points = points - ? WHERE user_id = ?", (deduction, uid))
             affected_users += 1
 
-        # Delete Message
         if msg_id and channel_id:
             try:
                 channel = self.bot.get_channel(channel_id)
@@ -84,7 +178,7 @@ class Admin(commands.Cog):
         response = f"🗑️ Deleted challenge **{challenge_id}**.\n📉 Deducted points from **{affected_users}** agents."
         await interaction.followup.send(response)
 
-    # --- POST CHALLENGE (Now with Extra Connection Info) ---
+    # --- POST CHALLENGE ---
     @app_commands.command(name="post", description="Post a challenge to a specific channel")
     @app_commands.default_permissions(administrator=True)
     async def post(self, 
@@ -92,7 +186,7 @@ class Admin(commands.Cog):
                    challenge_id: str, 
                    channel: discord.TextChannel = None, 
                    description: str = None, 
-                   connection_info: str = None,  # <--- NEW OPTIONAL INPUT
+                   connection_info: str = None, 
                    file: discord.Attachment = None):
         
         await interaction.response.defer(ephemeral=True)
@@ -120,15 +214,11 @@ class Admin(commands.Cog):
         if not category: category = "General"
         if not description: description = "Solve it."
         
-        # --- BUILD DESCRIPTION ---
-        # 1. Main Objective
         final_desc = f"**Objective:**\n```text\n{description}\n```"
         
-        # 2. Connection Info (if provided)
         if connection_info:
             final_desc += f"\n**📡 Connection:**\n```text\n{connection_info}\n```"
 
-        # Embed
         embed = discord.Embed(
             title=f"🛡️ MISSION: {challenge_id}",
             description=final_desc,
@@ -154,7 +244,6 @@ class Admin(commands.Cog):
         view.add_item(button)
 
         try:
-            # Send to TARGET Channel
             msg = await target_channel.send(embed=embed, view=view)
 
             if file:
@@ -193,6 +282,49 @@ class Admin(commands.Cog):
             
         embed = discord.Embed(title="📋 Challenge List", description=desc, color=discord.Color.blue())
         await interaction.followup.send(embed=embed)
+
+    # --- EXPORT DATABASE ---
+    @app_commands.command(name="export", description="Download the database backup")
+    @app_commands.default_permissions(administrator=True)
+    async def export_db(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        
+        if os.path.exists('ctf_data.db'):
+            try:
+                await interaction.followup.send(
+                    content="📦 **Here is your database backup:**",
+                    file=discord.File('ctf_data.db')
+                )
+            except Exception as e:
+                await interaction.followup.send(f"❌ Upload failed: {e}")
+        else:
+            await interaction.followup.send("❌ Error: 'ctf_data.db' not found.")
+
+    # --- IMPORT DATABASE (NEW) ---
+    @app_commands.command(name="import_db", description="Upload a .db file to restore data (Overwrites current DB!)")
+    @app_commands.default_permissions(administrator=True)
+    async def import_db(self, interaction: discord.Interaction, file: discord.Attachment):
+        await interaction.response.defer(ephemeral=True)
+
+        if not file.filename.endswith(".db"):
+             await interaction.followup.send("❌ File must be a `.db` file (e.g., `ctf_data.db`)")
+             return
+
+        # Backup existing just in case
+        if os.path.exists('ctf_data.db'):
+            try:
+                shutil.copy('ctf_data.db', 'ctf_data.db.bak')
+            except:
+                pass
+
+        try:
+            await file.save('ctf_data.db')
+            await interaction.followup.send("✅ **Database restored!**\nPrevious DB backed up to `ctf_data.db.bak`.")
+        except Exception as e:
+            await interaction.followup.send(f"❌ Failed to save file: {e}")
+            # Try to restore backup if it failed
+            if os.path.exists('ctf_data.db.bak'):
+                shutil.copy('ctf_data.db.bak', 'ctf_data.db')
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))
