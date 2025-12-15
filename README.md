@@ -1,85 +1,75 @@
-# 🛡️ CTF Bot: Feature Documentation
+# 🚩 Discord CTF Manager Bot - Documentation
 
-## 1. 👮 Administrator Control (Mission Control)
+## 🔍 System Analysis & Features
 
-Authorized personnel only. Used to manage the warfare infrastructure.
+### 1. 👮 Administrator Control (Mission Control)
 
-### Challenge Management
+#### Challenge Management:
+- **Creation (/create)**: Add challenges with a unique ID, point value, secret flag, category, and an optional Banner Image URL.
+- **Smart Posting (/post)**: Deploy challenges to a specific channel.
+- **Connection Info**: Supports a separate, copy-paste friendly field for IPs/Ports.
+- **File Attachments**: You can attach binaries or ZIP files directly to the command, and the bot will upload them with the challenge card.
+- **Inventory (/list)**: View all challenges and their status (🟢 Posted or 🔴 Unposted).
 
-#### Create Missions (`/create`)
+#### Economy Integrity (/delete):
+- When a challenge is deleted, the bot automatically calculates and deducts points from every user who solved it.
+- It removes the challenge from the database and deletes the message from the Discord channel.
 
-Define a unique Challenge ID (e.g., `WEB-01`), set Base Points (e.g., 100), set the Category (Web, Crypto, Pwn, etc.), set the secret Flag, and optionally add a Banner Image URL for visual flair.
+#### Command Management:
+- **!upload**: Instantly syncs Slash Commands to the current server (Guild) for immediate testing.
+- **!fix_commands**: A troubleshooting tool that wipes and re-uploads commands if they get stuck.
 
-#### Post Missions (`/post`)
+### 2. 🕵️ Player Experience (Agent Interface)
 
-- **Target Channel**: Choose exactly where the challenge appears (or default to current).
-- **Dual Descriptions**:
-  - **Objective**: The story/task explanation.
-  - **Connection Info**: (Optional) A separate, copyable box for IPs, ports, or links.
-- **File Attachments**: Upload binaries or zips. These are sent as standalone messages immediately after the mission card for easy downloading.
-- **Smart Embeds**: Uses copy-friendly code blocks (\`\`\`\`text\`) for descriptions.
+#### Secure Submission:
+- Users click a "🚩 Submit Flag" button.
+- A Modal (Pop-up) appears for private input (prevents flag leaking).
 
-#### List Missions (`/list`)
+#### Anti-Cheat & Fairness:
+- **Cooldown**: A 5-second cooldown per user to prevent brute-force attacks.
+- **Duplicate Check**: Prevents users from submitting the same flag twice.
 
-- View all configured challenges.
-- See status indicators: 🟢 Posted (Live) or 🔴 Unposted (Hidden).
+#### Agent Dossier (/profile):
+- Generates a dynamic Embed showing the user's Rank, Total Score, and Flags Captured.
+- Uses the user's avatar and profile color.
 
-#### Delete Missions (`/delete`)
+### 3. 💰 Scoring & Bonuses
 
-- **Nuclear Option**: Deletes the challenge from the database.
-- **Clean Up**: Automatically deletes the mission message from the channel.
-- **Economy Balancing**: Automatically deducts points (Base + Bonus) from every user who solved it, keeping the scoreboard fair.
+- **Base Score**: The fixed points assigned to the challenge.
 
-## 2. 🕵️ Player Experience (Agent Interface)
+#### First Blood System:
+- 🥇 **1st Solver**: +50 Bonus Points.
+- 🥈 **2nd Solver**: +25 Bonus Points.
+- 🥉 **3rd Solver**: +10 Bonus Points.
 
-Features available to all participants.
+### 4. 📊 Live Intelligence (Real-time UI)
 
-### Submission System
+#### Global Leaderboard:
+- A dedicated message that updates every 1 minute.
+- Shows the Top 15 players with medals (👑, 🥈, 🥉).
 
-- **One-Click Entry**: Users click a generic green "🚩 Submit Flag" button.
-- **Private Modals**: A pop-up form appears to enter the flag (prevents others from seeing the answer).
-- **Instant Feedback**:
-  - 🎉 **Success**: Shows points earned and bonus details.
-  - ❌ **Fail**: "Incorrect Flag" warning.
-  - ⚠️ **Duplicate**: Prevents re-submitting solved challenges.
-- **Anti-Brute Force**: A 5-second cooldown prevents spamming guesses.
+#### Dynamic Challenge Cards:
+- When a user solves a challenge, the original post updates automatically.
+- **First Blood Field**: Displays the name of the very first solver.
+- **Solvers List**: Lists subsequent solvers, paginated (creates new pages if the list gets long).
 
-### Live Intel (Leaderboards)
+## 🛠️ Installation & Setup Guide
 
-#### Global Standings
+### Step 1: Prerequisites
+- Python 3.8+ installed.
+- A Discord Bot Token from the Developer Portal.
+- Paste the Token inside a .env file(as DISCORD_TOKEN=your_token)
+- Enable Message Content Intent and Server Members Intent in the portal.
 
-- A "Master Leaderboard" that auto-updates every 1 minute.
-- Displays the Top 15 Agents.
-- Rank icons: 👑 (1st), 🥈 (2nd), 🥉 (3rd).
+### Step 2: Project Structure
+Ensure your folder looks exactly like this:
 
-#### Mission Specific Intel (The Challenge Card)
-
-- **🩸 First Blood**: A prestigious field on the card showing the very first solver.
-- **📜 Live Solvers List**: As more people solve it, their names appear in a list below the First Blood.
-- **Pagination**: Automatically creates new "pages" in the embed if many users solve a challenge.
-
-### Agent Dossier
-
-#### Profile Command (`/profile`)
-
-- View your own (or another agent's) stats.
-- Displays: Rank (e.g., #5), Total Score, and Flags Captured.
-- Personalized with the user's avatar and color.
-
-## 3. 💰 Scoring & Economy
-
-How the points are calculated.
-
-- **Base Score**: The fixed value of the challenge (e.g., 100 pts).
-- **First Blood Bonuses**: Dynamic rewards for speed.
-  - 🥇 **1st Place**: +50 Points
-  - 🥈 **2nd Place**: +25 Points
-  - 🥉 **3rd Place**: +10 Points
-- **Smart Updates**: If a challenge card is updated (e.g., a new solver), the bot smartly preserves the original "Bounty" and "Category" fields while updating the solver list.
-
-## 4. ⚙️ Technical Specifications
-
-- **Database**: SQLite (`ctf_data.db`) for lightweight, reliable data storage.
-- **Persistence**: Leaderboard message IDs and Challenge message IDs are stored, allowing the bot to resume updates even after a restart.
-- **Language**: Python 3 (using `discord.py`).
-- **UI**: Uses Discord's modern Embeds, Buttons, Modals, and Slash Commands.
+```
+project/
+├── cogs
+│   ├── admin.py
+│   └── player.py
+├── .env
+├── main.py
+└── requirements.txt
+```
