@@ -151,6 +151,11 @@ When you need to update the bot's code:
   * Run the manual command `!fix_commands` in the server (not a slash command, just type it in chat).
   * Wait 10 seconds, then refresh your Discord (`Ctrl + R`).
 
+**Q: Commands not appearing after inviting bot to server?**
+
+  * Run the manual command `!upload` in the server (not a slash command, just it in chat).
+  * Wait till it says DONE, then refresh your Discord (`Ctrl + R`).
+
 **Q: Images aren't showing on challenges?**
 
   * Ensure the `image_url` you provided ends in `.png`, `.jpg`, or `.gif`. Discord cannot embed generic website links as images.
