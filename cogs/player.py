@@ -5,7 +5,7 @@ import sqlite3
 import time
 
 # --- CONFIGURATION ---
-LEADERBOARD_CHANNEL_ID = 1449762279850774548
+LEADERBOARD_CHANNEL_ID = 1449791275720245460
 
 # First Blood Bonuses (0=1st place, 1=2nd place, etc.)
 BONUSES = {0: 50, 1: 25, 2: 10}
@@ -21,7 +21,7 @@ class SubmissionModal(discord.ui.Modal):
 
     flag_input = discord.ui.TextInput(
         label='Flag', 
-        placeholder='CTF{...}', 
+        placeholder='SGCTF{...}', 
         style=discord.TextStyle.short, 
         required=True
     )

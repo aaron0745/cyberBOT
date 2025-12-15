@@ -1,109 +1,85 @@
-# 🚩 CyberBOT: Discord CTF Manager
-> *A robust, database-driven Discord bot for hosting Capture The Flag competitions.*
+# 🛡️ CTF Bot: Feature Documentation
 
-CyberBOT simplifies managing CTF events directly within Discord. It features automated scoring, dynamic leaderboards, category management, and a file-based challenge system.
+## 1. 👮 Administrator Control (Mission Control)
 
----
+Authorized personnel only. Used to manage the warfare infrastructure.
 
-## 🛠️ Installation & Setup
+### Challenge Management
 
-### **1. Create the Application**
-1.  Go to the [Discord Developer Portal](https://discord.com/developers/applications).
-2.  Click **New Application** and give your bot a name (e.g., `CyberBOT`).
-3.  Navigate to **Settings > Bot** in the sidebar.
-4.  Click **Reset Token** (or Generate Token) and **COPY IT immediately**. You will not see it again.
+#### Create Missions (`/create`)
 
-### **2. Configure Permissions (Important!)**
-While still in the **Bot** tab, scroll down to **Privileged Gateway Intents** and enable these three:
-* ✅ **Presence Intent**
-* ✅ **Server Members Intent**
-* ✅ **Message Content Intent**
+Define a unique Challenge ID (e.g., `WEB-01`), set Base Points (e.g., 100), set the Category (Web, Crypto, Pwn, etc.), set the secret Flag, and optionally add a Banner Image URL for visual flair.
 
-Save your changes.
+#### Post Missions (`/post`)
 
-### **3. Invite the Bot**
-1.  Navigate to **OAuth2 > URL Generator**.
-2.  **Scopes:** Select `bot` and `applications.commands`.
-3.  **Bot Permissions:** Select `Administrator`.
-4.  Copy the generated URL at the bottom and paste it into your browser to invite the bot to your server.
+- **Target Channel**: Choose exactly where the challenge appears (or default to current).
+- **Dual Descriptions**:
+  - **Objective**: The story/task explanation.
+  - **Connection Info**: (Optional) A separate, copyable box for IPs, ports, or links.
+- **File Attachments**: Upload binaries or zips. These are sent as standalone messages immediately after the mission card for easy downloading.
+- **Smart Embeds**: Uses copy-friendly code blocks (\`\`\`\`text\`) for descriptions.
 
----
+#### List Missions (`/list`)
 
-## ⚙️ Local Configuration
+- View all configured challenges.
+- See status indicators: 🟢 Posted (Live) or 🔴 Unposted (Hidden).
 
-### **1. Set the Token**
-Create a file named `.env` in the root folder (same folder as `main.py`) and paste your token:
+#### Delete Missions (`/delete`)
 
-```ini
-DISCORD_TOKEN=paste_your_long_token_here
-```
-### **2. Customization (Optional)**
+- **Nuclear Option**: Deletes the challenge from the database.
+- **Clean Up**: Automatically deletes the mission message from the channel.
+- **Economy Balancing**: Automatically deducts points (Base + Bonus) from every user who solved it, keeping the scoreboard fair.
 
-**📍 Set Leaderboard Channel:**
-Open `cogs/player.py` and find `LEADERBOARD_CHANNEL_ID`.
-* Replace the ID with the Channel ID where you want the live scoreboard to appear.
-* *Note: Right-click a channel in Discord > Copy ID (Developer Mode must be on).*
+## 2. 🕵️ Player Experience (Agent Interface)
 
-**🖼️ Set Banner Image:**
-Open `cogs/admin.py` and find `BANNER_URL`.
-* Upload your banner image to a private Discord channel.
-* Right-click the image > **Copy Link**.
-* Paste the URL inside the quotes.
+Features available to all participants.
 
----
+### Submission System
 
-## 🚀 Running the Bot
+- **One-Click Entry**: Users click a generic green "🚩 Submit Flag" button.
+- **Private Modals**: A pop-up form appears to enter the flag (prevents others from seeing the answer).
+- **Instant Feedback**:
+  - 🎉 **Success**: Shows points earned and bonus details.
+  - ❌ **Fail**: "Incorrect Flag" warning.
+  - ⚠️ **Duplicate**: Prevents re-submitting solved challenges.
+- **Anti-Brute Force**: A 5-second cooldown prevents spamming guesses.
 
-### **1. Install Dependencies**
-Open your terminal in the bot folder and install the required libraries (if you haven't already):
-```bash
-pip install -r requirements.txt
-```
-(Ensure discord.py and python-dotenv are installed).
+### Live Intel (Leaderboards)
 
-### **2. Launch**
-Run the bot using Python:
-```bash
-python main.py
-```
-If successful, you will see:
+#### Global Standings
 
-```text
----------------------------------
-✅ Logged in as: CyberBOT#8317
----------------------------------
-📦 Loaded: player.py
-📦 Loaded: admin.py
-```
+- A "Master Leaderboard" that auto-updates every 1 minute.
+- Displays the Top 15 Agents.
+- Rank icons: 👑 (1st), 🥈 (2nd), 🥉 (3rd).
 
+#### Mission Specific Intel (The Challenge Card)
 
-### **3. Sync Commands (First Run Only)**
-Go to your Discord server and type this command to initialize the menu:
-`!upload`
+- **🩸 First Blood**: A prestigious field on the card showing the very first solver.
+- **📜 Live Solvers List**: As more people solve it, their names appear in a list below the First Blood.
+- **Pagination**: Automatically creates new "pages" in the embed if many users solve a challenge.
 
-*Press `Ctrl + R` (Windows) or `Cmd + R` (Mac) to refresh your Discord client if commands don't appear immediately.*
+### Agent Dossier
 
----
+#### Profile Command (`/profile`)
 
-## 🎮 Command Usage
+- View your own (or another agent's) stats.
+- Displays: Rank (e.g., #5), Total Score, and Flags Captured.
+- Personalized with the user's avatar and color.
 
-### **Admin Commands**
-*(Only accessible to Administrators)*
+## 3. 💰 Scoring & Economy
 
-| Command | Description |
-| :--- | :--- |
-| `/create` | **Create a new challenge** in the database.<br>Inputs: `id`, `flag`, `points`, `category`. |
-| `/list` | **View all challenges** currently in the database. |
-| `/post` | **Publish a challenge** to a channel for players to see.<br>Inputs: `channel`, `id`, `description`, `file` (optional). |
+How the points are calculated.
 
-### **Player Features**
-* **🚩 Submit Flag:** Click the green button on any challenge post to open the submission box.
-* **🏆 Live Leaderboard:** Automatically updates every 60 seconds in the configured channel.
-* **🩸 First Blood:** The challenge post updates automatically to honor the first solver.
+- **Base Score**: The fixed value of the challenge (e.g., 100 pts).
+- **First Blood Bonuses**: Dynamic rewards for speed.
+  - 🥇 **1st Place**: +50 Points
+  - 🥈 **2nd Place**: +25 Points
+  - 🥉 **3rd Place**: +10 Points
+- **Smart Updates**: If a challenge card is updated (e.g., a new solver), the bot smartly preserves the original "Bounty" and "Category" fields while updating the solver list.
 
----
+## 4. ⚙️ Technical Specifications
 
-## ⚠️ Troubleshooting
-* **"Application did not respond"**: The bot might have crashed. Check your terminal for errors.
-* **Commands not showing up**: Run `!upload` again and refresh your Discord app (`Ctrl + R`).
-* **Database Errors**: If you change the code structure significantly, delete `ctf_data.db` and restart to rebuild the database.
+- **Database**: SQLite (`ctf_data.db`) for lightweight, reliable data storage.
+- **Persistence**: Leaderboard message IDs and Challenge message IDs are stored, allowing the bot to resume updates even after a restart.
+- **Language**: Python 3 (using `discord.py`).
+- **UI**: Uses Discord's modern Embeds, Buttons, Modals, and Slash Commands.
