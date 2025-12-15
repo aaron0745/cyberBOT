@@ -12,7 +12,7 @@ Before running the code, ensure you have:
 1.  **Python 3.9+** installed.
 2.  A **Discord Bot Token** (From the [Discord Developer Portal](https://www.google.com/search?q=https://discord.com/developers/applications)).
       * *Note:* Ensure "Message Content Intent", "Server Members Intent", and "Presence Intent" are **ON**.
-      * 
+
 ### B. Folder Structure
 
 Your project folder **must** look exactly like this for the bot to find the files.
