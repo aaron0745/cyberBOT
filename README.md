@@ -1,7 +1,4 @@
 Here is your **complete Master Documentation** for the CTF Bot.
-
-This guide covers everything from the very first installation step to managing a live event. You can save this text as a `README.md` file for your team or keep it as your personal reference.
-
 -----
 
 # 📘 CTF Bot - Master Operation Manual
