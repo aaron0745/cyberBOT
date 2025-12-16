@@ -209,7 +209,7 @@ class Player(commands.Cog):
                 conn.close()
                 
                 if not hints:
-                    await interaction.response.send_message("🤷‍♂️ **No hints available** for this challenge.", ephemeral=True)
+                    await interaction.response.send_message("🤷♂️ **No hints available** for this challenge.", ephemeral=True)
                 else:
                     await interaction.response.send_message(view=HintView(hints, self.bot, interaction.user.id), ephemeral=True)
 
@@ -244,7 +244,10 @@ class Player(commands.Cog):
                 "`/show` - Reveal flag/info.\n\n"
                 "**`Judge`**\n"
                 "`/revoke` - Remove solve.\n"
-                "`/ban_user` - Disqualify player."
+                "`/ban_user` - Disqualify player.\n\n"
+                "**`System`**\n"
+                "`/export` - Download Database Backup.\n"
+                "`/import` - Upload Database Backup."
             )
             embed.add_field(name="🛡️ Admin Control Panel", value=admin_desc, inline=False)
 

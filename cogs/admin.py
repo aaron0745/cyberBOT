@@ -125,7 +125,7 @@ class Admin(commands.Cog):
         
         conn.close()
 
-    # --- 4. LIST CHALLENGES (NEW) ---
+    # --- 4. LIST CHALLENGES ---
     @app_commands.command(name="list", description="List all created challenges")
     @app_commands.default_permissions(administrator=True)
     async def list_challenges(self, interaction: discord.Interaction):
@@ -147,7 +147,7 @@ class Admin(commands.Cog):
         embed = discord.Embed(title="📋 Challenge List", description=desc, color=discord.Color.blue())
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # --- 5. SHOW DETAILS (NEW) ---
+    # --- 5. SHOW DETAILS ---
     @app_commands.command(name="show", description="Reveal flag and details for a challenge")
     @app_commands.default_permissions(administrator=True)
     async def show(self, interaction: discord.Interaction, challenge_id: str):
@@ -171,7 +171,7 @@ class Admin(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # --- 6. DELETE CHALLENGE (NEW) ---
+    # --- 6. DELETE CHALLENGE ---
     @app_commands.command(name="delete", description="Delete a challenge from the database")
     @app_commands.default_permissions(administrator=True)
     async def delete(self, interaction: discord.Interaction, challenge_id: str):
@@ -271,6 +271,46 @@ class Admin(commands.Cog):
         conn.commit()
         conn.close()
         await interaction.response.send_message(f"🚫 **BANNED!** {member.mention} has been disqualified from the CTF.", ephemeral=True)
+
+    # --- 10. EXPORT DATABASE (BACKUP) ---
+    @app_commands.command(name="export", description="Download the current database backup")
+    @app_commands.default_permissions(administrator=True)
+    async def export_db(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        
+        if os.path.exists('ctf_data.db'):
+            try:
+                await interaction.followup.send(
+                    content="📦 **Database Backup:**\nSave this file to your computer to prevent data loss.",
+                    file=discord.File('ctf_data.db')
+                )
+            except Exception as e:
+                await interaction.followup.send(f"❌ Upload failed: {e}")
+        else:
+            await interaction.followup.send("❌ Database file 'ctf_data.db' not found.")
+
+    # --- 11. IMPORT DATABASE (RESTORE) ---
+    @app_commands.command(name="import", description="⚠️ Overwrite the database with a backup file")
+    @app_commands.describe(file="Upload the ctf_data.db file here")
+    @app_commands.default_permissions(administrator=True)
+    async def import_db(self, interaction: discord.Interaction, file: discord.Attachment):
+        await interaction.response.defer(ephemeral=True)
+        
+        if not file.filename.endswith(".db"):
+            await interaction.followup.send("❌ Invalid file. Please upload a `.db` file.")
+            return
+        
+        try:
+            # Overwrite the existing file
+            await file.save("ctf_data.db")
+            
+            # Force leaderboard refresh if possible
+            cog = self.bot.get_cog('Player')
+            if cog: await cog.update_leaderboard()
+
+            await interaction.followup.send("✅ **Database Restored!**\nAll scores, challenges, and solves have been updated to match the file.")
+        except Exception as e:
+            await interaction.followup.send(f"❌ Failed to import: {e}")
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))
