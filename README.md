@@ -1,161 +1,175 @@
-Here is your **complete Master Documentation** for the CTF Bot.
------
+Here is the complete **CTF Bot Operator's Manual**.
 
-# 📘 CTF Bot - Master Operation Manual
+This document covers everything from creating the bot account on Discord to running the specific commands we have coded. You can save this as a `README.md` or a PDF for your team.
 
-## 1\. Installation & Setup
+---
 
-### A. Prerequisites
+#📘 Discord CTF Bot: Operator's Manual##Part 1: Discord Developer SetupBefore running the code, you must create the "Bot User" on Discord and get the keys.
 
-Before running the code, ensure you have:
+###1. Create the Application1. Go to the [Discord Developer Portal](https://www.google.com/search?q=https://discord.com/developers/applications).
+2. Click **"New Application"** (Top Right).
+3. Name it (e.g., "CTF Commander") and click **Create**.
 
-1.  **Python 3.9+** installed.
-2.  A **Discord Bot Token** (From the [Discord Developer Portal](https://www.google.com/search?q=https://discord.com/developers/applications)).
-      * *Note:* Ensure "Message Content Intent", "Server Members Intent", and "Presence Intent" are **ON**.
+###2. Configure the Bot & Intents (Critical!)1. Click the **Bot** tab in the left menu.
+2. **Username:** Set the name users will see.
+3. **Privileged Gateway Intents:** Scroll down to this section. You **MUST** enable these three switches for the bot to work:
+* ✅ **Presence Intent** (To set status like "Playing Capture The Flag")
+* ✅ **Server Members Intent** (To track user leaderboards and bans)
+* ✅ **Message Content Intent** (To read `!upload` commands)
 
-### B. Folder Structure
 
-Your project folder **must** look exactly like this for the bot to find the files.
+4. Click **Save Changes**.
+
+###3. Get the Token1. On the **Bot** page, look for the **"Token"** section.
+2. Click **Reset Token**, then **Copy**.
+3. *Paste this into your `.env` file immediately (see Part 2).*
+
+###4. Invite to Server1. Click **OAuth2** -> **URL Generator** in the left menu.
+2. **Scopes:** Check these two boxes:
+* ✅ `bot`
+* ✅ `applications.commands` (Required for Slash Commands)
+
+
+3. **Bot Permissions:**
+* The easiest option is to check **Administrator**.
+* *If you want restricted permissions, it needs:* `Send Messages`, `Embed Links`, `Attach Files`, `Manage Messages` (to delete older posts), `Read Message History`.
+
+
+4. Copy the **Generated URL** at the bottom and paste it into your browser to invite the bot.
+
+---
+
+##Part 2: Installation & Configuration###1. Folder StructureEnsure your project folder looks exactly like this:
 
 ```text
-CTF_Bot/
-├── .env                 <-- Security file for your Token
-├── .discloudignore      <-- Prevents data overwrites (See Section 4)
-├── requirements.txt     <-- List of libraries needed
-├── main.py              <-- The brain of the bot
-└── cogs/                <-- Folder for bot modules
-    ├── admin.py         <-- Admin commands
-    └── player.py        <-- Player commands & Leaderboard
+/CTF-Bot
+  ├── .env                 # Stores your Token
+  ├── main.py              # The brain (Database & Sync)
+  ├── cogs/
+  │    ├── admin.py        # Admin commands
+  │    └── player.py       # Player commands & Logic
+
 ```
 
-### C. File Setup
+###2. The `.env` FileCreate a file named `.env` and paste your token inside:
 
-**1. Create `requirements.txt`** (Required for Discloud/Hosting)
-Create a file named `requirements.txt` and paste this inside:
+```ini
+DISCORD_TOKEN=MTE2Nz... (your token here) ...
 
-```text
-discord.py
-python-dotenv
-aiosqlite
 ```
 
-**2. Create `.env`**
-Create a file named `.env` and paste your bot token:
+###3. Install RequirementsOpen your terminal/command prompt and install the library:
 
-```env
-DISCORD_TOKEN=your_actual_token_here_do_not_share
+```bash
+pip install discord.py python-dotenv
+
 ```
 
-**3. Configure the Leaderboard Channel**
-The bot needs to know exactly where to print the "Master Leaderboard".
+###4. LaunchRun the bot:
 
-1.  Enable **Developer Mode** in Discord (User Settings \> Advanced).
-2.  Right-click your desired leaderboard channel $\rightarrow$ **Copy Channel ID**.
-3.  Open `cogs/player.py`.
-4.  Edit **Line 8-9**:
-    ```python
-    # REPLACE THIS WITH YOUR ACTUAL LEADERBOARD CHANNEL ID
-    LEADERBOARD_CHANNEL_ID = 123456789012345678  <-- Paste ID here
-    ```
+```bash
+python main.py
 
------
+```
 
-## 2\. Bot Features & Capabilities
+*You should see:* `✅ Logged in as: CTF Commander`
 
-### 🏆 The "Master" Live Leaderboard
+---
 
-  * **Hardcoded Stability:** The leaderboard lives in *one specific channel*. It updates every **60 seconds** automatically.
-  * **Self-Healing:** If someone accidentally deletes the leaderboard message, the bot detects it and sends a new one instantly.
-  * **Top 15 Display:** Shows the top agents with medals (🥇 🥈 🥉) and scores.
-
-### 🎮 The "Mission Card" System
-
-Challenges are not just text; they are interactive **Mission Cards**.
-
-  * **Interactive:** Every challenge post has a 🟢 **Submit Flag** button.
-  * **Live Updates:** When a player gets "First Blood" (first solve), the message updates *instantly* to show their name on the card for everyone to see.
-  * **Attachments:** You can attach zip files, images, or PDFs to challenges.
-
-### 🩸 Scoring Logic
-
-  * **First Blood Bonuses:**
-      * 🩸 **1st Place:** +50 pts
-      * 🥈 **2nd Place:** +25 pts
-      * 🥉 **3rd Place:** +10 pts
-  * **Anti-Bruteforce:** Players have a **5-second global cooldown** between flag attempts to prevent spamming.
-
------
-
-## 3\. Command Reference
-
-### 🛡️ Admin Commands (Managers Only)
-
-*All admin commands are Slash Commands (`/`).*
+##Part 3: Maintenance Commands (Prefix)These commands use the `!` prefix and are used to "wake up" the bot if Slash Commands (`/`) are not appearing.
 
 | Command | Usage | Description |
-| :--- | :--- | :--- |
-| **/create** | `/create [id] [points] [flag] [cat]` | Adds a challenge to the database. (Status: Unposted) |
-| **/post** | `/post [id] [channel]` | Publishes a created challenge to a Discord channel. |
-| **/edit** | `/edit [id] [points/flag]` | Fixes typos or values. **Only works if not posted yet.** |
-| **/delete** | `/delete [id]` | **DANGER:** Deletes a challenge and **removes points** from everyone who solved it. |
-| **/list** | `/list` | Shows a list of all challenges and their status (🟢 Posted / 🔴 Unposted). |
-| **/show** | `/show [id]` | Reveals hidden details (flag, image URL) for a specific challenge. |
-| **/export** | `/export` | Downloads the full `ctf_data.db` database (Backups). |
-| **/import\_db** | `/import_db [file]` | Uploads a `.db` file to **restore** the entire event state (Emergency only). |
+| --- | --- | --- |
+| **`!upload`** | `!upload` | **Quick Sync.** Pushes the latest slash commands to the current server. Use this if you just started the bot and don't see `/create`. |
+| **`!fix_commands`** | `!fix_commands` | **Nuclear Option.** Wipes all commands globally and re-uploads them. Use this if commands are "doubled" or refusing to update. |
 
-### 🕵️ Agent Commands (Players)
+> **Note:** These commands are restricted to Administrators only in the code.
 
-| Command | Description |
-| :--- | :--- |
-| **/profile** | View personal Rank, Score, and Flag Count. |
-| **/help** | Shows the "Agent Field Manual" (Instructions). |
-| **[Button]** | Players click "Submit Flag" on mission cards to play. |
+---
 
------
+##Part 4: Admin Commands (Slash)These commands are only visible to users with **Administrator** permissions.
 
-## 4\. Hosting & Data Safety (Crucial)
+###Challenge Management* **/create**
+* Creates a challenge in the database.
+* *Inputs:* `id` (unique name), `points`, `flag`, `category`.
 
-Since you are hosting on **Discloud** (or any cloud VPS), you must protect your database (`ctf_data.db`) from being overwritten.
 
-### A. The `.discloudignore` File
+* **/add_hint**
+* Adds a clue that players can buy.
+* *Inputs:* `challenge_id`, `text`, `cost`.
 
-Create a file named `.discloudignore` in your main folder and add this line:
 
-```text
-ctf_data.db
-```
+* **/post**
+* **The most important command.** Publishes the challenge to a Discord channel with the "Submit" and "Hint" buttons.
+* *Inputs:* `challenge_id`, `description`, `file` (optional).
 
-**Why?** This tells Discloud: "When I upload new code, **DO NOT** replace the live database with the empty one on my computer."
 
-### B. The Update Workflow (How to restart safely)
+* **/edit**
+* Updates a challenge (points, flag, etc.) without deleting it.
 
-When you need to update the bot's code:
 
-1.  **Backup First:** Run `/export` in Discord and save the file.
-2.  **Upload Code:** Upload your changes to Discloud (ensure `.discloudignore` is present).
-3.  **Restart:** Restart the bot via the dashboard.
-4.  **Restore (If needed):** If the database happens to be empty after restart, run `/import_db` and upload your backup file.
+* **/delete**
+* Permanently deletes a challenge and its logs from the database.
 
------
 
-## 5\. Troubleshooting
+* **/list**
+* Shows all created challenges and their status (Posted vs Draft).
 
-**Q: The Leaderboard isn't appearing?**
 
-  * Check the `LEADERBOARD_CHANNEL_ID` in `player.py`. It must match the ID of the channel exactly.
-  * Make sure the bot has permission to **Send Messages** and **Embed Links** in that channel.
-  * Wait 60 seconds; it runs on a 1-minute loop.
+* **/show**
+* Reveals the secret flag and details of a specific challenge (Admin eyes only).
 
-**Q: "Application Command failed" error?**
 
-  * Run the manual command `!fix_commands` in the server (not a slash command, just type it in chat).
-  * Wait 10 seconds, then refresh your Discord (`Ctrl + R`).
 
-**Q: Commands not appearing after inviting bot to server?**
+###Judge / Moderation* **/revoke** `user` `challenge_id`
+* Removes a specific solve from a player (e.g., if they cheated). Recalculates their score immediately.
 
-  * Run the manual command `!upload` in the server (not a slash command, just it in chat).
-  * Wait till it says DONE, then refresh your Discord (`Ctrl + R`).
 
-**Q: Images aren't showing on challenges?**
+* **/ban_user** `user`
+* Blacklists a user. They can no longer submit flags, even if they click the button.
 
-  * Ensure the `image_url` you provided ends in `.png`, `.jpg`, or `.gif`. Discord cannot embed generic website links as images.
+
+
+---
+
+##Part 5: Player Commands & FeaturesThese are visible to everyone.
+
+* **/help**
+* Shows the manual. (Admins see extra controls; Players only see instructions).
+
+
+* **/profile** `user` (optional)
+* Shows Rank, Score, and Solve count.
+
+
+
+###Interactive Features (Buttons)Players interact via buttons on the challenge posts, not commands.
+
+1. **[ 🚩 Submit Flag ]**
+* Opens a popup text box (Modal).
+* Verifies flag instantly.
+* **Cooldown:** 5 seconds between guesses (Anti-Spam).
+* **Logic:** Preventing duplicate solves.
+
+
+2. **[ 💡 Hints ]**
+* Shows a menu of hints for that challenge.
+* Buying a hint deducts points from the user's profile immediately.
+
+
+
+---
+
+##Part 6: Scoring MechanicsThis bot uses a **Fixed Base + First Blood Bonus** system.
+
+* **Base Points:** Determined by you when you `/create` (e.g., 500 pts).
+* **Bonuses:**
+* 🥇 **1st Solver:** Base + **50** pts
+* 🥈 **2nd Solver:** Base + **25** pts
+* 🥉 **3rd Solver:** Base + **10** pts
+* All subsequent solvers get Base points only.
+
+
+* **Audit Logging:**
+* The bot logs every Flag Capture, Hint Purchase, and Failed Attempt to your configured `LOG_CHANNEL_ID`.
+* **Anti-Cheat Logic:** If Player A and Player B solve the same hard challenge within 60 seconds of each other, the bot flags it as "Suspected Flag Sharing" in the logs.

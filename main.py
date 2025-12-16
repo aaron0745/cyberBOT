@@ -1,7 +1,6 @@
 import discord
 import os
 import sqlite3
-import asyncio
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
@@ -17,20 +16,35 @@ def init_db():
     conn = sqlite3.connect('ctf_data.db')
     c = conn.cursor()
     
-    # Flags Table (Updated to include image_url for banners)
+    # Flags Table
     c.execute('''CREATE TABLE IF NOT EXISTS flags
                  (challenge_id TEXT PRIMARY KEY, flag_text TEXT, points INTEGER, category TEXT,
                   msg_id INTEGER, channel_id INTEGER, image_url TEXT)''')
     
+    # Scores Table
     c.execute('''CREATE TABLE IF NOT EXISTS scores
                  (user_id INTEGER PRIMARY KEY, username TEXT, points INTEGER)''')
     
+    # Solves Table
     c.execute('''CREATE TABLE IF NOT EXISTS solves
                  (user_id INTEGER, challenge_id TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                  PRIMARY KEY (user_id, challenge_id))''')
     
+    # Config Table
     c.execute('''CREATE TABLE IF NOT EXISTS config
                  (key TEXT PRIMARY KEY, value INTEGER)''')
+
+    # Banlist Table
+    c.execute('''CREATE TABLE IF NOT EXISTS banlist 
+                 (user_id INTEGER PRIMARY KEY)''')
+
+    # NEW: Hints Table
+    c.execute('''CREATE TABLE IF NOT EXISTS hints
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, challenge_id TEXT, hint_text TEXT, cost INTEGER)''')
+
+    # NEW: Unlocked Hints (Tracks purchases)
+    c.execute('''CREATE TABLE IF NOT EXISTS unlocked_hints
+                 (user_id INTEGER, hint_id INTEGER, PRIMARY KEY (user_id, hint_id))''')
     
     conn.commit()
     conn.close()
