@@ -50,8 +50,8 @@ Ensure your project folder looks exactly like this:
   ├── .env                 # Stores your Token
   ├── main.py              # The brain (Database & Sync)
   ├── cogs/
-  │    ├── admin.py        # Admin commands
-  │    └── player.py       # Player commands & Logic
+  │   ├── admin.py         # Admin commands
+  │   └── player.py        # Player commands & Logic
 ```
 
 ### 2. The `.env` File
@@ -132,6 +132,17 @@ These commands are only visible to users with **Administrator** permissions.
 
 * **/ban_user** `user`
   * Blacklists a user. They can no longer submit flags, even if they click the button.
+
+### System / Backup (New)
+
+* **/export**
+  * **Backup Command.** Generates and sends a downloadable copy of the database (`ctf_data.db`).
+  * *Use Case:* Run this regularly to save your scoreboard and challenges.
+
+* **/import** `file`
+  * **Restore Command.** Uploads a `.db` file to **overwrite** the current database.
+  * *Warning:* This wipes the current live data and replaces it with the backup file.
+  * *Use Case:* Restoring data after a crash or moving the bot to a new server.
 
 ---
 
