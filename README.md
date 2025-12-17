@@ -92,7 +92,7 @@ These commands use the `!` prefix and are used to "wake up" the bot if Slash Com
 | **`!fix_commands`** | `!fix_commands` | **Nuclear Option.** Wipes all commands globally and re-uploads them. Use this if commands are "doubled" or refusing to update. |
 
 > **Note:** These commands are restricted to Administrators only in the code.
-> **`!fix_commands`** may some break the commands menu, so get a backup before running this command and if it does restart the bot after deleting ctf_data.db and import the backup.
+> **`!fix_commands`** may sometimes break the commands menu, so get a backup before running this command and if it does restart the bot after deleting ctf_data.db and import the backup.
 
 
 ---
