@@ -4,7 +4,7 @@ from discord.ext import commands
 import sqlite3
 import os
 
-# Must match the bonuses in player.py to deduct correctly
+# Must match the bonuses in player.py
 BONUSES = {0: 50, 1: 25, 2: 10}
 
 class Admin(commands.Cog):
@@ -161,7 +161,6 @@ class Admin(commands.Cog):
             await interaction.response.send_message(f"❌ Challenge **{challenge_id}** not found.", ephemeral=True)
             return
 
-        # data = (challenge_id, flag_text, points, category, msg_id, channel_id, image_url)
         flag = data[1]
         
         embed = discord.Embed(title=f"🔐 Details: {challenge_id}", color=discord.Color.gold())
@@ -171,42 +170,63 @@ class Admin(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # --- 6. DELETE CHALLENGE ---
-    @app_commands.command(name="delete", description="Delete a challenge from the database")
+    # --- 6. DELETE CHALLENGE (CORRECTED) ---
+    @app_commands.command(name="delete", description="Delete a challenge and remove points from solvers")
     @app_commands.default_permissions(administrator=True)
     async def delete(self, interaction: discord.Interaction, challenge_id: str):
+        await interaction.response.defer(ephemeral=True)
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
         
-        # Check if it exists to get the message ID (to delete the discord post if we want)
-        c.execute("SELECT channel_id, msg_id FROM flags WHERE challenge_id = ?", (challenge_id,))
-        data = c.fetchone()
+        # 1. Get Challenge Data
+        c.execute("SELECT points, channel_id, msg_id FROM flags WHERE challenge_id = ?", (challenge_id,))
+        flag_data = c.fetchone()
         
-        if not data:
+        if not flag_data:
             conn.close()
-            await interaction.response.send_message(f"❌ Challenge **{challenge_id}** not found.", ephemeral=True)
+            await interaction.followup.send(f"❌ Challenge **{challenge_id}** not found.")
             return
 
-        # Delete from DB
+        base_points = flag_data[0]
+        channel_id = flag_data[1]
+        msg_id = flag_data[2]
+
+        # 2. Deduct Points from Solvers
+        # We must replay the history to see who got bonuses
+        c.execute("SELECT user_id FROM solves WHERE challenge_id = ? ORDER BY timestamp ASC", (challenge_id,))
+        solvers = c.fetchall()
+        
+        deducted_count = 0
+        for i, (user_id,) in enumerate(solvers):
+            bonus = BONUSES.get(i, 0)
+            total_deduction = base_points + bonus
+            c.execute("UPDATE scores SET points = points - ? WHERE user_id = ?", (total_deduction, user_id))
+            deducted_count += 1
+
+        # 3. Delete Data
         c.execute("DELETE FROM flags WHERE challenge_id = ?", (challenge_id,))
         c.execute("DELETE FROM solves WHERE challenge_id = ?", (challenge_id,))
         c.execute("DELETE FROM hints WHERE challenge_id = ?", (challenge_id,))
+        
+        # 4. Delete Discord Post
+        post_status = ""
+        if channel_id and msg_id:
+            try:
+                ch = self.bot.get_channel(channel_id)
+                msg = await ch.fetch_message(msg_id)
+                await msg.delete()
+                post_status = " (Post deleted)"
+            except:
+                post_status = " (Post not found/already deleted)"
+
         conn.commit()
         conn.close()
 
-        # Try to delete the discord message
-        if data[0] and data[1]:
-            try:
-                ch = self.bot.get_channel(data[0])
-                msg = await ch.fetch_message(data[1])
-                await msg.delete()
-                extra = " (and deleted the post)"
-            except:
-                extra = " (post already gone or couldn't delete)"
-        else:
-            extra = ""
+        # 5. Refresh Leaderboard
+        cog = self.bot.get_cog('Player')
+        if cog: await cog.update_leaderboard()
 
-        await interaction.response.send_message(f"🗑️ **Deleted** challenge **{challenge_id}**{extra}.", ephemeral=True)
+        await interaction.followup.send(f"🗑️ **Deleted {challenge_id}**\n🔻 Points removed from {deducted_count} players.\n{post_status}")
 
     # --- 7. EDIT CHALLENGE ---
     @app_commands.command(name="edit", description="Edit a challenge")
@@ -272,7 +292,23 @@ class Admin(commands.Cog):
         conn.close()
         await interaction.response.send_message(f"🚫 **BANNED!** {member.mention} has been disqualified from the CTF.", ephemeral=True)
 
-    # --- 10. EXPORT DATABASE (BACKUP) ---
+    # --- 10. UNBAN USER ---
+    @app_commands.command(name="unban_user", description="Re-enable a user to submit flags")
+    @app_commands.default_permissions(administrator=True)
+    async def unban_user(self, interaction: discord.Interaction, member: discord.Member):
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+        c.execute("DELETE FROM banlist WHERE user_id = ?", (member.id,))
+        rows = c.rowcount
+        conn.commit()
+        conn.close()
+        
+        if rows > 0:
+            await interaction.response.send_message(f"✅ **UNBANNED!** {member.mention} can now submit flags again.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"⚠️ {member.mention} was not banned.", ephemeral=True)
+
+    # --- 11. EXPORT DATABASE (BACKUP) ---
     @app_commands.command(name="export", description="Download the current database backup")
     @app_commands.default_permissions(administrator=True)
     async def export_db(self, interaction: discord.Interaction):
@@ -289,7 +325,7 @@ class Admin(commands.Cog):
         else:
             await interaction.followup.send("❌ Database file 'ctf_data.db' not found.")
 
-    # --- 11. IMPORT DATABASE (RESTORE) ---
+    # --- 12. IMPORT DATABASE (RESTORE) ---
     @app_commands.command(name="import", description="⚠️ Overwrite the database with a backup file")
     @app_commands.describe(file="Upload the ctf_data.db file here")
     @app_commands.default_permissions(administrator=True)
