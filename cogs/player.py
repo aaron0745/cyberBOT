@@ -4,6 +4,7 @@ from discord.ext import commands, tasks
 import sqlite3
 import time
 import gc
+import functools
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from io import BytesIO
 
@@ -297,20 +298,29 @@ class Player(commands.Cog):
         draw.line([(width, height), (width-border_len, height)], fill=primary, width=border_width)
         draw.line([(width, height), (width, height-border_len)], fill=primary, width=border_width)
 
+        # --- RAM OPTIMIZATION: Handle Avatar Efficiently ---
         if avatar_bytes:
             try:
-                avatar = Image.open(BytesIO(avatar_bytes)).convert("RGBA")
-                mask = Image.new("L", (200, 200), 0)
-                draw_mask = ImageDraw.Draw(mask)
-                draw_mask.ellipse((0, 0, 200, 200), fill=255)
-                output = ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5))
-                output.putalpha(mask)
-                card.paste(output, (50, 75), output)
+                # Use 'with' to ensure the raw file is closed immediately
+                with Image.open(BytesIO(avatar_bytes)) as avatar_raw:
+                    # 1. Resize immediately to 200x200 BEFORE converting colors
+                    # This prevents holding a massive 5MB+ image in RAM
+                    avatar_raw.thumbnail((200, 200), Image.Resampling.LANCZOS) 
+                    
+                    avatar = avatar_raw.convert("RGBA")
+                    mask = Image.new("L", avatar.size, 0)
+                    draw_mask = ImageDraw.Draw(mask)
+                    draw_mask.ellipse((0, 0, avatar.size[0], avatar.size[1]), fill=255)
+                    
+                    output = ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5))
+                    output.putalpha(mask)
+                    card.paste(output, (50, 75), output)
                 
                 draw.ellipse((50, 75, 250, 275), outline=primary, width=4)
                 draw.arc((35, 60, 265, 290), start=140, end=220, fill=primary, width=2)
                 draw.arc((35, 60, 265, 290), start=320, end=40, fill=primary, width=2)
             except Exception: pass
+        # ---------------------------------------------------
 
         title_font = self.title_font
         badge_font = self.badge_font
@@ -374,9 +384,16 @@ class Player(commands.Cog):
         draw_stat_box(490, 190, "SCORE", points)
         draw_stat_box(680, 190, "FLAGS", solves)
 
+        # --- RAM OPTIMIZATION: Clean up immediately ---
         buffer = BytesIO()
-        card.save(buffer, format="PNG")
+        card.save(buffer, format="PNG", optimize=True) # Optimize compression
         buffer.seek(0)
+        
+        # Close objects and Force Garbage Collection
+        card.close()
+        gc.collect() 
+        # ---------------------------------------------
+        
         return buffer
 
     # --- COMMANDS ---
@@ -423,33 +440,45 @@ class Player(commands.Cog):
         await interaction.response.defer()
         target = member or interaction.user
         
+        # 1. Check Champion Role
         is_champion = False
-        if any(r.id == CHAMPION_ROLE_ID for r in target.roles):
+        # Ensure we use the global ID or the one defined in your class
+        if any(r.id == CHAMPION_ROLE_ID for r in target.roles): 
             is_champion = True
 
         conn = sqlite3.connect('ctf_data.db')
-        c = conn.cursor()
-        c.execute("SELECT user_id, points FROM scores ORDER BY points DESC")
-        all_players = c.fetchall()
+        c = conn.cursor() 
         
-        rank = "N/A"
-        points = 0
-        for i, (uid, pts) in enumerate(all_players, 1):
-            if uid == target.id:
-                rank = f"#{i}"
-                points = pts
-                break
+        # 2. OPTIMIZED SQL: Get points only for the target
+        c.execute("SELECT points FROM scores WHERE user_id = ?", (target.id,))
+        data = c.fetchone()
         
+        if data:
+            points = data[0]
+            # RAM SAVER: Count how many people have MORE points than user
+            # This returns 1 integer instead of loading 1000 users
+            c.execute("SELECT COUNT(*) FROM scores WHERE points > ?", (points,))
+            rank_pos = c.fetchone()[0] + 1
+            rank = f"#{rank_pos}"
+        else:
+            points = 0
+            rank = "N/A"
+
+        # 3. Get Solve Count
         c.execute("SELECT COUNT(*) FROM solves WHERE user_id = ?", (target.id,))
         solve_count = c.fetchone()[0]
         conn.close()
 
+        # 4. Fetch Avatar (Network)
         avatar_bytes = None
-        if target.avatar:
-            avatar_bytes = await target.avatar.read()
+        if target.avatar: 
+            try:
+                avatar_bytes = await target.avatar.read()
+            except: pass
 
-        buffer = await self.bot.loop.run_in_executor(
-            None, 
+        # 5. EXECUTOR: Run the heavy image drawing in background thread
+        # We use functools.partial to pass the arguments safely
+        func = functools.partial(
             self.draw_profile_card, 
             target, 
             rank, 
@@ -458,9 +487,14 @@ class Player(commands.Cog):
             avatar_bytes,
             is_champion 
         )
+
+        buffer = await self.bot.loop.run_in_executor(None, func)
         
         file = discord.File(fp=buffer, filename="profile.png")
         await interaction.followup.send(file=file)
+        
+        # Close buffer to free RAM
+        buffer.close()
 
     @app_commands.command(name="catchup", description="Show unsolved challenges")
     async def catchup(self, interaction: discord.Interaction):
