@@ -49,6 +49,7 @@ Ensure your project folder looks exactly like this:
 /CTF-Bot
   ├── .env                 # Stores your Token
   ├── main.py              # The brain (Database & Sync)
+  ├── font.ttf             # font the profile card uses
   ├── cogs/
   │   ├── admin.py         # Admin commands
   │   └── player.py        # Player commands & Logic
@@ -127,6 +128,10 @@ These commands are only visible to users with **Administrator** permissions.
 * **/show**
   * Reveals the secret flag and details of a specific challenge (Admin eyes only).
 
+* **/leaderboad**
+  * Updates the leaderboard at the instant (Admin only).
+  * Without using the command update takes 5 mins.
+
 ### Judge / Moderation
 
 * **/revoke** `user` `challenge_id`
@@ -160,7 +165,7 @@ These are visible to everyone.
   * Shows the manual. (Admins see extra controls; Players only see instructions).
 
 * **/profile** `user` (optional)
-  * Shows Rank, Score, and Solve count.
+  * Shows Rank, Score, and Solve count on a custom profile card (1 min cooldown).
 
 ### Interactive Features (Buttons)
 
@@ -175,6 +180,14 @@ Players interact via buttons on the challenge posts, not commands.
 2. **[ 💡 Hints ]**
    * Shows a menu of hints for that challenge.
    * Buying a hint deducts points from the user's profile immediately.
+
+3. **[ 👑 King of the Hill]**
+   * Only the #1 player leaderboard has a role.
+   * if another player reaches #1, a new #1 stole Champion's Belt from old #1.
+
+4. **[Auto role assigning]**
+   * When a player reaches the points (1500/5000/7500)they are assigned with (Script Kiddie/Hacker/Cyber God) roles.
+
 
 ---
 
