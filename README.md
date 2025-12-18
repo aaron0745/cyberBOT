@@ -183,7 +183,7 @@ Players interact via buttons on the challenge posts, not commands.
 
 3. **[ 👑 King of the Hill]**
    * Only the #1 player leaderboard has a role.
-   * if another player reaches #1, a new #1 stole Champion's Belt from old #1.
+   * if another player reaches #1, a message like "new #1 stole Champion's Belt from old #1" in gen-chat.
 
 4. **[Auto role assigning]**
    * When a player reaches the points (1500/5000/7500)they are assigned with (Script Kiddie/Hacker/Cyber God) roles.
