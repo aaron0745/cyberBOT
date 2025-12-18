@@ -258,18 +258,45 @@ class Admin(commands.Cog):
         finally:
             conn.close()
 
-    # --- 8. REVOKE SOLVE ---
-    @app_commands.command(name="revoke", description="Remove a solve from a player")
+    # --- 8. REVOKE SOLVE (BONUS SAFE) ---
+    @app_commands.command(name="revoke", description="Remove a solve and its specific points (including bonuses)")
     @app_commands.default_permissions(administrator=True)
     async def revoke(self, interaction: discord.Interaction, member: discord.Member, challenge_id: str):
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
-        c.execute("DELETE FROM solves WHERE user_id = ? AND challenge_id = ?", (member.id, challenge_id))
         
-        # Recalculate Score
-        c.execute("SELECT SUM(f.points) FROM solves s JOIN flags f ON s.challenge_id = f.challenge_id WHERE s.user_id = ?", (member.id,))
-        new_score = c.fetchone()[0] or 0
-        c.execute("UPDATE scores SET points = ? WHERE user_id = ?", (new_score, member.id))
+        # 1. Check if the solve exists and get timestamp
+        c.execute("SELECT timestamp FROM solves WHERE user_id = ? AND challenge_id = ?", (member.id, challenge_id))
+        solve_data = c.fetchone()
+        
+        if not solve_data:
+            conn.close()
+            await interaction.response.send_message(f"❌ {member.mention} has not solved **{challenge_id}**.", ephemeral=True)
+            return
+            
+        timestamp = solve_data[0]
+        
+        # 2. Get Challenge Points
+        c.execute("SELECT points FROM flags WHERE challenge_id = ?", (challenge_id,))
+        flag_data = c.fetchone()
+        if not flag_data:
+            conn.close()
+            await interaction.response.send_message(f"❌ Challenge **{challenge_id}** not found.", ephemeral=True)
+            return
+            
+        base_points = flag_data[0]
+        
+        # 3. Calculate Rank to find what Bonus they got
+        c.execute("SELECT COUNT(*) FROM solves WHERE challenge_id = ? AND timestamp < ?", (challenge_id, timestamp))
+        rank = c.fetchone()[0]
+        
+        bonus = BONUSES.get(rank, 0)
+        deduction = base_points + bonus
+        
+        # 4. Remove Solve and Deduct Points
+        c.execute("DELETE FROM solves WHERE user_id = ? AND challenge_id = ?", (member.id, challenge_id))
+        c.execute("UPDATE scores SET points = points - ? WHERE user_id = ?", (deduction, member.id))
+        
         conn.commit()
         conn.close()
 
@@ -279,7 +306,7 @@ class Admin(commands.Cog):
             await cog.update_leaderboard()
             await cog.update_challenge_card(challenge_id)
 
-        await interaction.response.send_message(f"🚨 **REVOKED!** Removed solve for **{challenge_id}** from {member.mention}.", ephemeral=True)
+        await interaction.response.send_message(f"🚨 **REVOKED!** Removed solve for **{challenge_id}** from {member.mention}.\n🔻 Deducted **{deduction} points** (Base: {base_points} + Bonus: {bonus}).", ephemeral=True)
 
     # --- 9. BAN USER ---
     @app_commands.command(name="ban_user", description="Ban a user from submitting flags")
