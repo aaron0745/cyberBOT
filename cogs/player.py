@@ -8,25 +8,20 @@ import functools
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from io import BytesIO
 
-# --- CONFIGURATION ---
-# ✅ YOUR SERVER ID
-GUILD_ID = 1449698544750559345  
-
-LEADERBOARD_CHANNEL_ID = 1449791275720245460 
-LOG_CHANNEL_ID = 1450450923255103548 
-GENERAL_CHANNEL_ID = 1449699468579438655
-
-# Role IDs
-CHAMPION_ROLE_ID = 1451100636526411867
-
-RANK_ROLES = {
-    2500: 1451101024910577807,   # Script Kiddie
-    6000: 1451101568496832624,   # Hacker
-    9000: 1451101705788719205    # Cyber God
-}
-
 BONUSES = {0: 50, 1: 25, 2: 10}
 COOLDOWNS = {} 
+
+def get_config_id(key):
+    """Helper to fetch channel/role IDs from DB"""
+    try:
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+        c.execute("SELECT value FROM config WHERE key = ?", (key,))
+        result = c.fetchone()
+        conn.close()
+        return result[0] if result else None
+    except:
+        return None
 
 # --- HINT SYSTEM ---
 class HintSelect(discord.ui.Select):
@@ -96,7 +91,7 @@ class HintView(discord.ui.View):
 
 # --- SUBMISSION SYSTEM ---
 class SubmissionModal(discord.ui.Modal, title="Submit Flag"):
-    flag_input = discord.ui.TextInput(label="Enter Flag", placeholder="CTF{...}")
+    flag_input = discord.ui.TextInput(label="Enter Flag", placeholder="SGCTF{...}")
 
     def __init__(self, challenge_id, bot):
         super().__init__()
@@ -110,18 +105,33 @@ class SubmissionModal(discord.ui.Modal, title="Submit Flag"):
 
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
+        
+        # 0. Check Banlist
         c.execute("SELECT * FROM banlist WHERE user_id = ?", (user_id,))
         if c.fetchone():
             conn.close()
             await interaction.response.send_message("🚫 **ACCESS DENIED.** You have been disqualified.", ephemeral=True)
             return
 
+        # 0.1 Check Time Limit (24 Hours)
+        c.execute("SELECT posted_at FROM flags WHERE challenge_id = ?", (self.challenge_id,))
+        data = c.fetchone()
+        if data and data[0]:
+            posted_at = data[0]
+            # 24 hours in seconds = 86400
+            if current_time > (posted_at + 86400):
+                conn.close()
+                await interaction.response.send_message("⏳ **Time limit exceeded**", ephemeral=True)
+                return
+
+        # 1. Cooldown Check
         if user_id in COOLDOWNS and current_time - COOLDOWNS[user_id] < 2:
             conn.close()
             await interaction.response.send_message("⏳ Too fast! Wait a second.", ephemeral=True)
             return
         COOLDOWNS[user_id] = current_time
 
+        # 2. Duplicate Solve Check
         c.execute("SELECT * FROM solves WHERE user_id = ? AND challenge_id = ?", (user_id, self.challenge_id))
         if c.fetchone():
             conn.close()
@@ -141,20 +151,16 @@ class SubmissionModal(discord.ui.Modal, title="Submit Flag"):
         if user_flag == correct_flag:
             
             # --- 🕵️ FLAG SHARING SUSPICION CHECK ---
-            # Check who solved this specific challenge last
             c.execute("SELECT user_id, timestamp FROM solves WHERE challenge_id = ? ORDER BY timestamp DESC LIMIT 1", (self.challenge_id,))
             last_solve = c.fetchone()
             
             suspicion_msg = None
             if last_solve:
                 last_solver_id, last_ts = last_solve
-                # If timestamp is stored as string/datetime, force int conversion if needed (here we store ints)
-                try: last_ts = int(last_ts) # Safety cast
+                try: last_ts = int(last_ts) 
                 except: last_ts = 0
 
                 time_diff = current_time - last_ts
-                
-                # If a DIFFERENT user solved it less than 60 seconds ago
                 if last_solver_id != user_id and time_diff <= 60:
                      suspicion_msg = f"🚨 **POSSIBLE COLLUSION**\nUser solved **{self.challenge_id}** only **{time_diff}s** after <@{last_solver_id}>."
             # ---------------------------------------
@@ -177,12 +183,23 @@ class SubmissionModal(discord.ui.Modal, title="Submit Flag"):
             c.execute("SELECT points FROM scores WHERE user_id = ?", (user_id,))
             new_total_score = c.fetchone()[0]
             
+            # DYNAMIC ROLE ASSIGNMENT
             role_msg = ""
             if interaction.guild:
                 member = interaction.guild.get_member(user_id)
                 if member:
+                    # Fetch Role IDs from Config
+                    rank_1 = get_config_id('role_rank_1')
+                    rank_2 = get_config_id('role_rank_2')
+                    rank_3 = get_config_id('role_rank_3')
+
+                    rank_map = {}
+                    if rank_1: rank_map[2500] = rank_1
+                    if rank_2: rank_map[6000] = rank_2
+                    if rank_3: rank_map[9000] = rank_3
+
                     assigned_roles = []
-                    for threshold, role_id in RANK_ROLES.items():
+                    for threshold, role_id in rank_map.items():
                         if new_total_score >= threshold:
                             role = interaction.guild.get_role(role_id)
                             if role and role not in member.roles:
@@ -204,17 +221,19 @@ class SubmissionModal(discord.ui.Modal, title="Submit Flag"):
             await interaction.response.send_message(msg, ephemeral=True)
 
             # LOGGING
-            log_channel = self.bot.get_channel(LOG_CHANNEL_ID)
-            if log_channel:
-                desc = f"**User:** {interaction.user.mention}\n**Challenge:** {self.challenge_id}\n**Points:** {total_points}"
-                color = discord.Color.green()
-                
-                if suspicion_msg:
-                    desc += f"\n\n{suspicion_msg}"
-                    color = discord.Color.orange() # Turn embed orange for suspicion
+            log_channel_id = get_config_id('channel_log')
+            if log_channel_id:
+                log_channel = self.bot.get_channel(log_channel_id)
+                if log_channel:
+                    desc = f"**User:** {interaction.user.mention}\n**Challenge:** {self.challenge_id}\n**Points:** {total_points}"
+                    color = discord.Color.green()
+                    
+                    if suspicion_msg:
+                        desc += f"\n\n{suspicion_msg}"
+                        color = discord.Color.orange()
 
-                embed = discord.Embed(title="✅ Flag Captured", description=desc, color=color)
-                await log_channel.send(embed=embed)
+                    embed = discord.Embed(title="✅ Flag Captured", description=desc, color=color)
+                    await log_channel.send(embed=embed)
             
             cog = self.bot.get_cog('Player')
             if cog: 
@@ -304,7 +323,6 @@ class Player(commands.Cog):
                 # Use 'with' to ensure the raw file is closed immediately
                 with Image.open(BytesIO(avatar_bytes)) as avatar_raw:
                     # 1. Resize immediately to 200x200 BEFORE converting colors
-                    # This prevents holding a massive 5MB+ image in RAM
                     avatar_raw.thumbnail((200, 200), Image.Resampling.LANCZOS) 
                     
                     avatar = avatar_raw.convert("RGBA")
@@ -405,7 +423,6 @@ class Player(commands.Cog):
         # 1. PLAYER COMMANDS
         player_desc = (
             "**`/profile`** - View Agent ID & Stats\n"
-            "**`/catchup`** - View unsolved challenges\n"
             "**`/help`** - View this Menu\n"
             "**Submit Flag** - Click 'Submit Flag' on challenge posts\n"
             "**Get Hint** - Click 'Get Hint' to buy clues\n"
@@ -416,6 +433,8 @@ class Player(commands.Cog):
         # 2. ADMIN COMMANDS (Explicit Check)
         if interaction.user.guild_permissions.administrator:
             admin_desc = (
+                "**`/setup`** - Configure Channels & Roles\n"
+                "**`/reset_config`** - Wipe Configuration\n"
                 "**`/create`** - Create new Challenge\n"
                 "**`/edit`** - Modify existing Challenge\n"
                 "**`/post`** - Publish Challenge to Channel\n"
@@ -429,6 +448,7 @@ class Player(commands.Cog):
                 "**`/unban_user`** - Remove a player from Banlist\n"
                 "**`/export`** - Download Database\n"
                 "**`/import`** - Restore Database\n"
+                "**`/wipe_all`** - RESET EVERYTHING\n"
             )
             embed.add_field(name="🛡️ Admin Controls", value=admin_desc, inline=False)
         
@@ -440,10 +460,10 @@ class Player(commands.Cog):
         await interaction.response.defer()
         target = member or interaction.user
         
-        # 1. Check Champion Role
+        # 1. Check Champion Role dynamically
         is_champion = False
-        # Ensure we use the global ID or the one defined in your class
-        if any(r.id == CHAMPION_ROLE_ID for r in target.roles): 
+        champ_role_id = get_config_id('role_champion')
+        if champ_role_id and any(r.id == champ_role_id for r in target.roles): 
             is_champion = True
 
         conn = sqlite3.connect('ctf_data.db')
@@ -496,37 +516,6 @@ class Player(commands.Cog):
         # Close buffer to free RAM
         buffer.close()
 
-    @app_commands.command(name="catchup", description="Show unsolved challenges")
-    async def catchup(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        user_id = interaction.user.id
-        conn = sqlite3.connect('ctf_data.db')
-        c = conn.cursor()
-        c.execute("SELECT challenge_id, category, points, channel_id FROM flags")
-        all_challenges = c.fetchall()
-        c.execute("SELECT challenge_id FROM solves WHERE user_id = ?", (user_id,))
-        solved_ids = {row[0] for row in c.fetchall()}
-        conn.close()
-        
-        unsolved = [chall for chall in all_challenges if chall[0] not in solved_ids]
-        if not unsolved:
-            await interaction.followup.send("🎉 **Mission Complete!** All challenges solved.")
-            return
-
-        categories = {}
-        for cid, cat, pts, ch_id in unsolved:
-            if cat not in categories: categories[cat] = []
-            categories[cat].append((cid, pts, ch_id))
-            
-        embed = discord.Embed(title="📋 Pending Missions", color=discord.Color.orange())
-        for cat, challenges in categories.items():
-            text = ""
-            for cid, pts, ch_id in challenges:
-                chan_link = f"<#{ch_id}>" if ch_id else "Unposted"
-                text += f"• **{cid}** ({pts} pts) in {chan_link}\n"
-            embed.add_field(name=f"📂 {cat}", value=text, inline=False)
-        await interaction.followup.send(embed=embed)
-
     @app_commands.command(name="leaderboard", description="Force update the leaderboard (Admin Only)")
     @app_commands.default_permissions(administrator=True) 
     async def leaderboard(self, interaction: discord.Interaction):
@@ -538,7 +527,10 @@ class Player(commands.Cog):
         await self.update_leaderboard()
 
     async def update_leaderboard(self):
-        channel = self.bot.get_channel(LEADERBOARD_CHANNEL_ID)
+        lb_channel_id = get_config_id('channel_leaderboard')
+        if not lb_channel_id: return
+        
+        channel = self.bot.get_channel(lb_channel_id)
         if not channel: return
 
         conn = sqlite3.connect('ctf_data.db')
@@ -550,10 +542,14 @@ class Player(commands.Cog):
         conn.close()
 
         try:
-            guild = self.bot.get_guild(GUILD_ID)
-            if guild and top_players:
-                champion_role = guild.get_role(CHAMPION_ROLE_ID)
-                general_channel = self.bot.get_channel(GENERAL_CHANNEL_ID)
+            # Handle Champion Role Logic
+            champ_role_id = get_config_id('role_champion')
+            gen_channel_id = get_config_id('channel_general')
+            
+            if top_players and champ_role_id and gen_channel_id:
+                guild = channel.guild
+                champion_role = guild.get_role(champ_role_id)
+                general_channel = self.bot.get_channel(gen_channel_id)
 
                 if champion_role:
                     top_user_id = top_players[0][0]
@@ -590,8 +586,8 @@ class Player(commands.Cog):
             fb_text = ""
             for chall, uid in first_bloods[-5:]: 
                 u_name = "Unknown"
-                if guild:
-                    mem = guild.get_member(uid)
+                if channel.guild:
+                    mem = channel.guild.get_member(uid)
                     if mem: u_name = mem.display_name
                 fb_text += f"🩸 **{chall}** — {u_name}\n"
             embed.add_field(name="Recent First Bloods", value=fb_text, inline=False)
@@ -630,7 +626,7 @@ class Player(commands.Cog):
 
             saved_fields = []
             for f in embed.fields:
-                if "Bounty" in f.name or "Category" in f.name:
+                if "Bounty" in f.name or "Category" in f.name or "Time Limit" in f.name:
                     saved_fields.append(f)
             embed.clear_fields()
             for f in saved_fields:

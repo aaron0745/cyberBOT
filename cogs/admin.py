@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import sqlite3
 import os
+import time
 
 # Must match the bonuses in player.py
 BONUSES = {0: 50, 1: 25, 2: 10}
@@ -10,6 +11,100 @@ BONUSES = {0: 50, 1: 25, 2: 10}
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    # --- 0. SETUP COMMANDS ---
+    
+    @app_commands.command(name="setup", description="Configure channels and roles for the CTF")
+    @app_commands.describe(
+        leaderboard_channel="Where the leaderboard updates",
+        log_channel="Where solves are logged",
+        general_channel="Where main chat happens (for announcements)",
+        champion_role="The role given to the #1 player",
+        rank_1_role="Role for 2500 pts",
+        rank_2_role="Role for 6000 pts",
+        rank_3_role="Role for 9000 pts"
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def setup(self, interaction: discord.Interaction, 
+                    leaderboard_channel: discord.TextChannel = None,
+                    log_channel: discord.TextChannel = None,
+                    general_channel: discord.TextChannel = None,
+                    champion_role: discord.Role = None,
+                    rank_1_role: discord.Role = None,
+                    rank_2_role: discord.Role = None,
+                    rank_3_role: discord.Role = None):
+        
+        await interaction.response.defer(ephemeral=True)
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+        
+        updates = []
+        if leaderboard_channel: 
+            c.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('channel_leaderboard', ?)", (leaderboard_channel.id,))
+            updates.append(f"✅ Leaderboard Channel: {leaderboard_channel.mention}")
+        
+        if log_channel:
+            c.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('channel_log', ?)", (log_channel.id,))
+            updates.append(f"✅ Log Channel: {log_channel.mention}")
+
+        if general_channel:
+            c.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('channel_general', ?)", (general_channel.id,))
+            updates.append(f"✅ General Channel: {general_channel.mention}")
+
+        if champion_role:
+            c.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('role_champion', ?)", (champion_role.id,))
+            updates.append(f"👑 Champion Role: **{champion_role.name}**")
+
+        if rank_1_role:
+            c.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('role_rank_1', ?)", (rank_1_role.id,))
+            updates.append(f"⭐ Rank 1 Role: **{rank_1_role.name}**")
+
+        if rank_2_role:
+            c.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('role_rank_2', ?)", (rank_2_role.id,))
+            updates.append(f"⭐ Rank 2 Role: **{rank_2_role.name}**")
+
+        if rank_3_role:
+            c.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('role_rank_3', ?)", (rank_3_role.id,))
+            updates.append(f"⭐ Rank 3 Role: **{rank_3_role.name}**")
+
+        conn.commit()
+        conn.close()
+
+        if not updates:
+            await interaction.followup.send("⚠️ No settings changed. Please select options to configure.")
+        else:
+            await interaction.followup.send("⚙️ **Configuration Updated:**\n" + "\n".join(updates))
+
+    @app_commands.command(name="reset_config", description="Wipe all channel/role configurations")
+    @app_commands.default_permissions(administrator=True)
+    async def reset_config(self, interaction: discord.Interaction):
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+        c.execute("DELETE FROM config")
+        conn.commit()
+        conn.close()
+        await interaction.response.send_message("🔄 **Config Reset!** Run `/setup` to re-configure.", ephemeral=True)
+
+    @app_commands.command(name="wipe_all", description="⚠️ NUCLEAR: Delete EVERYTHING (Players, Flags, Solves)")
+    @app_commands.default_permissions(administrator=True)
+    async def wipe_all(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+        
+        # Delete data from all tables
+        c.execute("DELETE FROM flags")
+        c.execute("DELETE FROM scores")
+        c.execute("DELETE FROM solves")
+        c.execute("DELETE FROM banlist")
+        c.execute("DELETE FROM hints")
+        c.execute("DELETE FROM unlocked_hints")
+        c.execute("DELETE FROM config")
+        
+        conn.commit()
+        conn.close()
+        
+        await interaction.followup.send("☢️ **NUCLEAR WIPEOUT COMPLETE.**\nThe database is empty. You have a clean slate.")
 
     # --- 1. CREATE CHALLENGE ---
     @app_commands.command(name="create", description="Add a new challenge to the database")
@@ -57,7 +152,7 @@ class Admin(commands.Cog):
         await interaction.response.send_message(f"✅ Added hint for **{challenge_id}** (Cost: {cost} pts).", ephemeral=True)
 
     # --- 3. POST CHALLENGE ---
-    @app_commands.command(name="post", description="Post a challenge to a specific channel")
+    @app_commands.command(name="post", description="Post a challenge to a specific channel (Starts 24h Timer)")
     @app_commands.default_permissions(administrator=True)
     async def post(self, 
                    interaction: discord.Interaction, 
@@ -96,6 +191,7 @@ class Admin(commands.Cog):
         )
         embed.add_field(name="💰 Bounty", value=f"**{points} Points**", inline=True)
         embed.add_field(name="📂 Category", value=f"**{category}**", inline=True)
+        embed.add_field(name="⏳ Time Limit", value="**24 Hours**", inline=True)
         embed.add_field(name="🩸 First Blood", value="*Waiting...*", inline=False) 
 
         if image_url:
@@ -117,9 +213,12 @@ class Admin(commands.Cog):
                 f = await file.to_file()
                 await target_channel.send(file=f)
 
-            c.execute("UPDATE flags SET msg_id = ?, channel_id = ? WHERE challenge_id = ?", (msg.id, target_channel.id, challenge_id))
+            # UPDATE DB WITH MESSAGE ID AND POST TIME
+            current_time = int(time.time())
+            c.execute("UPDATE flags SET msg_id = ?, channel_id = ?, posted_at = ? WHERE challenge_id = ?", 
+                     (msg.id, target_channel.id, current_time, challenge_id))
             conn.commit()
-            await interaction.followup.send(f"✅ Posted **{challenge_id}** in {target_channel.mention}!")
+            await interaction.followup.send(f"✅ Posted **{challenge_id}** in {target_channel.mention}!\n⏳ 24h Timer started.")
         except Exception as e:
             await interaction.followup.send(f"⚠️ Failed to post: {e}")
         
@@ -170,7 +269,7 @@ class Admin(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # --- 6. DELETE CHALLENGE (CORRECTED) ---
+    # --- 6. DELETE CHALLENGE ---
     @app_commands.command(name="delete", description="Delete a challenge and remove points from solvers")
     @app_commands.default_permissions(administrator=True)
     async def delete(self, interaction: discord.Interaction, challenge_id: str):
@@ -192,7 +291,6 @@ class Admin(commands.Cog):
         msg_id = flag_data[2]
 
         # 2. Deduct Points from Solvers
-        # We must replay the history to see who got bonuses
         c.execute("SELECT user_id FROM solves WHERE challenge_id = ? ORDER BY timestamp ASC", (challenge_id,))
         solvers = c.fetchall()
         
@@ -258,14 +356,14 @@ class Admin(commands.Cog):
         finally:
             conn.close()
 
-    # --- 8. REVOKE SOLVE (BONUS SAFE) ---
+    # --- 8. REVOKE SOLVE ---
     @app_commands.command(name="revoke", description="Remove a solve and its specific points (including bonuses)")
     @app_commands.default_permissions(administrator=True)
     async def revoke(self, interaction: discord.Interaction, member: discord.Member, challenge_id: str):
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
         
-        # 1. Check if the solve exists and get timestamp
+        # 1. Check if the solve exists
         c.execute("SELECT timestamp FROM solves WHERE user_id = ? AND challenge_id = ?", (member.id, challenge_id))
         solve_data = c.fetchone()
         
@@ -286,7 +384,7 @@ class Admin(commands.Cog):
             
         base_points = flag_data[0]
         
-        # 3. Calculate Rank to find what Bonus they got
+        # 3. Calculate Rank
         c.execute("SELECT COUNT(*) FROM solves WHERE challenge_id = ? AND timestamp < ?", (challenge_id, timestamp))
         rank = c.fetchone()[0]
         
@@ -335,7 +433,7 @@ class Admin(commands.Cog):
         else:
             await interaction.response.send_message(f"⚠️ {member.mention} was not banned.", ephemeral=True)
 
-    # --- 11. EXPORT DATABASE (BACKUP) ---
+    # --- 11. EXPORT DATABASE ---
     @app_commands.command(name="export", description="Download the current database backup")
     @app_commands.default_permissions(administrator=True)
     async def export_db(self, interaction: discord.Interaction):
@@ -352,7 +450,7 @@ class Admin(commands.Cog):
         else:
             await interaction.followup.send("❌ Database file 'ctf_data.db' not found.")
 
-    # --- 12. IMPORT DATABASE (RESTORE) ---
+    # --- 12. IMPORT DATABASE ---
     @app_commands.command(name="import", description="⚠️ Overwrite the database with a backup file")
     @app_commands.describe(file="Upload the ctf_data.db file here")
     @app_commands.default_permissions(administrator=True)
