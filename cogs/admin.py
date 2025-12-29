@@ -30,7 +30,7 @@ class Admin(commands.Cog):
         
         current_time = int(time.time())
         # --- SET THIS TO YOUR DESIRED DURATION (e.g., 2 mins = 120 seconds) ---
-        duration = 2 * 60 
+        duration = 1440 * 60 # Change the time to 24hrs
 
         for challenge_id, channel_id, msg_id, posted_at in active_challenges:
             if not posted_at: continue
@@ -287,7 +287,7 @@ class Admin(commands.Cog):
             final_desc += f"\n**📡 Connection:**\n```text\n{connection_info}\n```"
 
         current_time = int(time.time())
-        end_time = current_time + (2 * 60) # 2 MINUTES
+        end_time = current_time + (1440 * 60) # Change the time here to 24hrs 
 
         embed = discord.Embed(
             title=f"🛡️ MISSION: {challenge_id}",

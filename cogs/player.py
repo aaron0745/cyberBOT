@@ -289,14 +289,21 @@ class Player(commands.Cog):
         width, height = 900, 350
         bg_color = (15, 15, 20)  
         
+        # --- 1. DETERMINE ROLE & COLORS ---
         if is_champion:
-            primary = (255, 215, 0)      
+            primary = (255, 215, 0)       # Gold
             fill_color = (40, 30, 0)    
             text_color = "white"
             badge_text_color = (255, 230, 150) 
             role_name = "CHAMPION"
+        elif rank == "N/A" or points == 0:
+            primary = (100, 100, 100)     # Grey for newbies
+            fill_color = (30, 30, 35)    
+            text_color = "white"
+            badge_text_color = (200, 200, 200) 
+            role_name = "RECRUIT"         # <--- NEW STATUS
         else:
-            primary = (0, 255, 230)      
+            primary = (0, 255, 230)       # Cyan for players
             fill_color = (0, 40, 40)    
             text_color = "white"
             badge_text_color = (200, 255, 255) 
@@ -305,11 +312,13 @@ class Player(commands.Cog):
         card = Image.new("RGBA", (width, height), bg_color)
         draw = ImageDraw.Draw(card)
 
+        # Background Grid
         for x in range(0, width, 40):
             draw.line([(x, 0), (x, height)], fill=(25, 30, 35), width=1)
         for y in range(0, height, 40):
             draw.line([(0, y), (width, y)], fill=(25, 30, 35), width=1)
 
+        # Corners
         border_len = 100
         border_width = 6
         draw.line([(0, 0), (border_len, 0)], fill=primary, width=border_width)
@@ -317,64 +326,73 @@ class Player(commands.Cog):
         draw.line([(width, height), (width-border_len, height)], fill=primary, width=border_width)
         draw.line([(width, height), (width, height-border_len)], fill=primary, width=border_width)
 
-        # --- RAM OPTIMIZATION: Handle Avatar Efficiently ---
+        # --- 2. AVATAR HANDLING (With Default Fallback) ---
+        avatar_drawn = False
         if avatar_bytes:
             try:
-                # Use 'with' to ensure the raw file is closed immediately
                 with Image.open(BytesIO(avatar_bytes)) as avatar_raw:
-                    # 1. Resize immediately to 200x200 BEFORE converting colors
                     avatar_raw.thumbnail((200, 200), Image.Resampling.LANCZOS) 
-                    
                     avatar = avatar_raw.convert("RGBA")
                     mask = Image.new("L", avatar.size, 0)
                     draw_mask = ImageDraw.Draw(mask)
                     draw_mask.ellipse((0, 0, avatar.size[0], avatar.size[1]), fill=255)
-                    
                     output = ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5))
                     output.putalpha(mask)
                     card.paste(output, (50, 75), output)
-                
-                draw.ellipse((50, 75, 250, 275), outline=primary, width=4)
-                draw.arc((35, 60, 265, 290), start=140, end=220, fill=primary, width=2)
-                draw.arc((35, 60, 265, 290), start=320, end=40, fill=primary, width=2)
+                    avatar_drawn = True
             except Exception: pass
+        
+        # If no avatar or error, draw Default Placeholder
+        if not avatar_drawn:
+            # Draw dark circle background
+            draw.ellipse((50, 75, 250, 275), fill=(25, 30, 35))
+            # Draw User's Initial
+            try:
+                initial = user.display_name[0].upper()
+                # Try to use a large font for the initial
+                initial_font = ImageFont.truetype("font.ttf", 100)
+                # Center the letter
+                bbox = draw.textbbox((0, 0), initial, font=initial_font)
+                w = bbox[2] - bbox[0]
+                h = bbox[3] - bbox[1]
+                draw.text((150 - w/2, 175 - h/1.5), initial, fill=primary, font=initial_font)
+            except:
+                # Fallback if font fails
+                pass
+
+        # Draw Avatar Border and Arcs
+        draw.ellipse((50, 75, 250, 275), outline=primary, width=4)
+        draw.arc((35, 60, 265, 290), start=140, end=220, fill=primary, width=2)
+        draw.arc((35, 60, 265, 290), start=320, end=40, fill=primary, width=2)
         # ---------------------------------------------------
 
-        # Reuse pre-loaded fonts, but we might change title_font for scaling
+        # Reuse pre-loaded fonts
         name_font = self.title_font
         badge_font = self.badge_font
         label_font = self.label_font
         value_font = self.value_font
 
         text_x = 300
-        # CHANGE 1: Use Display Name
         name_text = user.display_name.upper()
 
-        # --- CHANGE 2: DYNAMIC SCALING LOGIC ---
-        max_name_width = 550 # Max width (900px total - 300px offset - 50px padding)
-        current_font_size = 65 # Starting size (Must match self.title_font in init)
-        
+        # Dynamic Font Scaling
+        max_name_width = 550 
+        current_font_size = 65 
         try:
-            # Check initial width
             bbox = draw.textbbox((0, 0), name_text, font=name_font)
             text_width = bbox[2] - bbox[0]
-
-            # Loop to shrink font if too wide
             while text_width > max_name_width and current_font_size > 25:
-                current_font_size -= 4 # Reduce size step
+                current_font_size -= 4 
                 try:
-                    # Reload font with smaller size
                     name_font = ImageFont.truetype("font.ttf", current_font_size)
                     bbox = draw.textbbox((0, 0), name_text, font=name_font)
                     text_width = bbox[2] - bbox[0]
-                except:
-                    break # Break if font file missing (using default font)
-        except Exception:
-            pass # Fallback to default behavior if error
-        # ---------------------------------------
+                except: break 
+        except Exception: pass
 
         draw.text((text_x, 40), name_text, fill=text_color, font=name_font)
         
+        # Badge / Role Box
         badge_y = 120
         bbox = draw.textbbox((0, 0), role_name, font=badge_font)
         text_w = bbox[2] - bbox[0]
@@ -397,12 +415,7 @@ class Player(commands.Cog):
         
         if is_champion:
             r = 7
-            diamond = [
-                (icon_x, icon_y - r - 2), 
-                (icon_x + r + 2, icon_y), 
-                (icon_x, icon_y + r + 2), 
-                (icon_x - r - 2, icon_y)  
-            ]
+            diamond = [(icon_x, icon_y - r - 2), (icon_x + r + 2, icon_y), (icon_x, icon_y + r + 2), (icon_x - r - 2, icon_y)]
             draw.polygon(diamond, fill=primary)
         else:
             r = 6
@@ -410,6 +423,7 @@ class Player(commands.Cog):
 
         draw.text((bx + 50, by + 4), role_name, fill=badge_text_color, font=badge_font)
 
+        # Stats Boxes
         def draw_stat_box(x, y, label, value):
             box_w, box_h = 170, 110
             bx, by = x, y
@@ -421,7 +435,6 @@ class Player(commands.Cog):
                 (bx, by + box_h - cut), (bx, by + cut)
             ]
             draw.polygon(points, fill=(20, 25, 30), outline=primary, width=2)
-            
             draw.text((x + 15, y + 10), label, fill=primary, font=label_font)
             draw.text((x + 15, y + 45), str(value), fill="white", font=value_font)
 
@@ -429,16 +442,11 @@ class Player(commands.Cog):
         draw_stat_box(490, 190, "SCORE", points)
         draw_stat_box(680, 190, "FLAGS", solves)
 
-        # --- RAM OPTIMIZATION: Clean up immediately ---
         buffer = BytesIO()
-        card.save(buffer, format="PNG", optimize=True) # Optimize compression
+        card.save(buffer, format="PNG", optimize=True)
         buffer.seek(0)
-        
-        # Close objects and Force Garbage Collection
         card.close()
         gc.collect() 
-        # ---------------------------------------------
-        
         return buffer
 
     # --- COMMANDS ---
