@@ -601,7 +601,7 @@ class Player(commands.Cog):
                 GROUP BY user_id
             ) t ON s.user_id = t.user_id
             ORDER BY s.points DESC, t.last_ts ASC
-            LIMIT 15
+            LIMIT 20
         """)
         top_players = c.fetchall()
 
