@@ -535,8 +535,22 @@ class Player(commands.Cog):
 
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
-        c.execute("SELECT user_id, username, points FROM scores ORDER BY points DESC LIMIT 15")
+
+        # --- UPDATED QUERY FOR TIE BREAKING ---
+        c.execute("""
+            SELECT s.user_id, s.username, s.points 
+            FROM scores s
+            LEFT JOIN (
+                SELECT user_id, MAX(timestamp) as last_ts 
+                FROM solves 
+                GROUP BY user_id
+            ) t ON s.user_id = t.user_id
+            ORDER BY s.points DESC, t.last_ts ASC
+            LIMIT 15
+        """)
         top_players = c.fetchall()
+        # --------------------------------------
+
         c.execute("SELECT value FROM config WHERE key = 'lb_msg_id'")
         row = c.fetchone()
         conn.close()
