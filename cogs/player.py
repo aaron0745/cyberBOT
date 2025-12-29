@@ -290,13 +290,13 @@ class Player(commands.Cog):
         bg_color = (15, 15, 20)  
         
         if is_champion:
-            primary = (255, 215, 0)     
+            primary = (255, 215, 0)      
             fill_color = (40, 30, 0)    
             text_color = "white"
             badge_text_color = (255, 230, 150) 
             role_name = "CHAMPION"
         else:
-            primary = (0, 255, 230)     
+            primary = (0, 255, 230)      
             fill_color = (0, 40, 40)    
             text_color = "white"
             badge_text_color = (200, 255, 255) 
@@ -340,13 +340,40 @@ class Player(commands.Cog):
             except Exception: pass
         # ---------------------------------------------------
 
-        title_font = self.title_font
+        # Reuse pre-loaded fonts, but we might change title_font for scaling
+        name_font = self.title_font
         badge_font = self.badge_font
         label_font = self.label_font
         value_font = self.value_font
 
         text_x = 300
-        draw.text((text_x, 40), user.name.upper(), fill=text_color, font=title_font)
+        # CHANGE 1: Use Display Name
+        name_text = user.display_name.upper()
+
+        # --- CHANGE 2: DYNAMIC SCALING LOGIC ---
+        max_name_width = 550 # Max width (900px total - 300px offset - 50px padding)
+        current_font_size = 65 # Starting size (Must match self.title_font in init)
+        
+        try:
+            # Check initial width
+            bbox = draw.textbbox((0, 0), name_text, font=name_font)
+            text_width = bbox[2] - bbox[0]
+
+            # Loop to shrink font if too wide
+            while text_width > max_name_width and current_font_size > 25:
+                current_font_size -= 4 # Reduce size step
+                try:
+                    # Reload font with smaller size
+                    name_font = ImageFont.truetype("font.ttf", current_font_size)
+                    bbox = draw.textbbox((0, 0), name_text, font=name_font)
+                    text_width = bbox[2] - bbox[0]
+                except:
+                    break # Break if font file missing (using default font)
+        except Exception:
+            pass # Fallback to default behavior if error
+        # ---------------------------------------
+
+        draw.text((text_x, 40), name_text, fill=text_color, font=name_font)
         
         badge_y = 120
         bbox = draw.textbbox((0, 0), role_name, font=badge_font)
