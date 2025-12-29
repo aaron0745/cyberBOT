@@ -1,4 +1,5 @@
 .env
 __pycache__/
 venv
-
+ctf_data.db
+ctf_data.sql
