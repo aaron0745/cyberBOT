@@ -469,20 +469,41 @@ class Player(commands.Cog):
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor() 
         
-        # 2. OPTIMIZED SQL: Get points only for the target
-        c.execute("SELECT points FROM scores WHERE user_id = ?", (target.id,))
+        # --- FIXED RANK CALCULATION START ---
+        # Step A: Get Target's Points AND Last Solve Timestamp
+        c.execute("""
+            SELECT s.points, MAX(sl.timestamp)
+            FROM scores s
+            LEFT JOIN solves sl ON s.user_id = sl.user_id
+            WHERE s.user_id = ?
+        """, (target.id,))
         data = c.fetchone()
         
-        if data:
+        if data and data[0] is not None:
             points = data[0]
-            # RAM SAVER: Count how many people have MORE points than user
-            # This returns 1 integer instead of loading 1000 users
-            c.execute("SELECT COUNT(*) FROM scores WHERE points > ?", (points,))
+            # If they have points but no solves (manual adjust), assume time is 0
+            last_ts = data[1] if data[1] else 0
+
+            # Step B: Count how many people are "Better" than target
+            # Better = More Points OR (Same Points AND Earlier Time)
+            c.execute("""
+                SELECT COUNT(*)
+                FROM scores s
+                LEFT JOIN (
+                    SELECT user_id, MAX(timestamp) as max_ts
+                    FROM solves
+                    GROUP BY user_id
+                ) t ON s.user_id = t.user_id
+                WHERE s.points > ? 
+                   OR (s.points = ? AND IFNULL(t.max_ts, 0) < ?)
+            """, (points, points, last_ts))
+            
             rank_pos = c.fetchone()[0] + 1
             rank = f"#{rank_pos}"
         else:
             points = 0
             rank = "N/A"
+        # --- FIXED RANK CALCULATION END ---
 
         # 3. Get Solve Count
         c.execute("SELECT COUNT(*) FROM solves WHERE user_id = ?", (target.id,))
@@ -497,7 +518,6 @@ class Player(commands.Cog):
             except: pass
 
         # 5. EXECUTOR: Run the heavy image drawing in background thread
-        # We use functools.partial to pass the arguments safely
         func = functools.partial(
             self.draw_profile_card, 
             target, 
