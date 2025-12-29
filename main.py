@@ -15,42 +15,50 @@ bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
 # --- 2. DATABASE ---
 def init_db():
-    conn = sqlite3.connect('ctf_data.db',timeout=10)
+    conn = sqlite3.connect('ctf_data.db')
     c = conn.cursor()
     
-    # Enable Write-Ahead Logging for speed/concurrency
-    c.execute("PRAGMA journal_mode=WAL")
-
-    # Flags Table
+    # Flags Table (Updated with posted_at)
     c.execute('''CREATE TABLE IF NOT EXISTS flags
                  (challenge_id TEXT PRIMARY KEY, flag_text TEXT, points INTEGER, category TEXT,
                   msg_id INTEGER, channel_id INTEGER, image_url TEXT, posted_at INTEGER)''')
     
-    # Scores Table (with last_solve_time)
+    # --- MIGRATION: Check if posted_at exists (for older DBs) ---
+    try:
+        c.execute("SELECT posted_at FROM flags LIMIT 1")
+    except sqlite3.OperationalError:
+        print("⚠️ Migrating Database: Adding 'posted_at' column to flags table...")
+        c.execute("ALTER TABLE flags ADD COLUMN posted_at INTEGER")
+    # -------------------------------------------------------------
+
+    # Scores Table
     c.execute('''CREATE TABLE IF NOT EXISTS scores
-                 (user_id INTEGER PRIMARY KEY, username TEXT, points INTEGER, last_solve_time INTEGER DEFAULT 0)''')
+                 (user_id INTEGER PRIMARY KEY, username TEXT, points INTEGER)''')
     
     # Solves Table
     c.execute('''CREATE TABLE IF NOT EXISTS solves
                  (user_id INTEGER, challenge_id TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                  PRIMARY KEY (user_id, challenge_id))''')
     
-    # Banlist
-    c.execute('''CREATE TABLE IF NOT EXISTS banlist (user_id INTEGER PRIMARY KEY)''')
+    # Banlist Table
+    c.execute('''CREATE TABLE IF NOT EXISTS banlist 
+                 (user_id INTEGER PRIMARY KEY)''')
 
-    # Config
-    c.execute('''CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value INTEGER)''')
-    
     # Hints Table
     c.execute('''CREATE TABLE IF NOT EXISTS hints
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, challenge_id TEXT, hint_text TEXT, cost INTEGER)''')
 
-    # Unlocked Hints Table
+    # Config Table
+    c.execute('''CREATE TABLE IF NOT EXISTS config
+                 (key TEXT PRIMARY KEY, value INTEGER)''')
+
+    # Unlocked Hints
     c.execute('''CREATE TABLE IF NOT EXISTS unlocked_hints
                  (user_id INTEGER, hint_id INTEGER, PRIMARY KEY (user_id, hint_id))''')
 
     conn.commit()
     conn.close()
+    print("📂 Database initialized successfully.")
 
 # --- 3. STATUS TASK ---
 @tasks.loop(minutes=5)

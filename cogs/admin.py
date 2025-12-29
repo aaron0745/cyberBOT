@@ -5,19 +5,6 @@ import sqlite3
 import os
 import time
 
-# ADD THIS TO THE TOP (Right after imports, before 'BONUSES'):
-
-def get_config_id(key):
-    try:
-        conn = sqlite3.connect('ctf_data.db', timeout=10)
-        c = conn.cursor()
-        c.execute("SELECT value FROM config WHERE key = ?", (key,))
-        result = c.fetchone()
-        conn.close()
-        return result[0] if result else None
-    except:
-        return None
-
 # Must match the bonuses in player.py
 BONUSES = {0: 50, 1: 25, 2: 10}
 
@@ -48,7 +35,7 @@ class Admin(commands.Cog):
                     rank_3_role: discord.Role = None):
         
         await interaction.response.defer(ephemeral=True)
-        conn = sqlite3.connect('ctf_data.db', timeout=10)
+        conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
         
         updates = []
