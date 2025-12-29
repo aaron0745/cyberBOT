@@ -536,7 +536,7 @@ class Player(commands.Cog):
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
 
-        # --- UPDATED QUERY FOR TIE BREAKING ---
+        # 1. Fetch Top 15 (With Tie-Breaking Logic)
         c.execute("""
             SELECT s.user_id, s.username, s.points 
             FROM scores s
@@ -549,7 +549,6 @@ class Player(commands.Cog):
             LIMIT 15
         """)
         top_players = c.fetchall()
-        # --------------------------------------
 
         c.execute("SELECT value FROM config WHERE key = 'lb_msg_id'")
         row = c.fetchone()
@@ -585,9 +584,18 @@ class Player(commands.Cog):
         embed.set_footer(text="Updates every 2 mins")
         
         desc = ""
-        for i, (uid, user, points) in enumerate(top_players, 1):
+        # --- DISPLAY NAME UPDATE START ---
+        for i, (uid, db_username, points) in enumerate(top_players, 1):
+            # Fetch the live member object to get the Display Name (Nickname)
+            member = channel.guild.get_member(uid)
+            
+            # Use nickname if found, otherwise fallback to database username
+            final_name = member.display_name if member else db_username
+            
             icon = "👑" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"**#{i}**"
-            desc += f"{icon} • **{user}** — `{points} pts`\n"
+            desc += f"{icon} • **{final_name}** — `{points} pts`\n"
+        # --- DISPLAY NAME UPDATE END ---
+        
         embed.description = desc if desc else "No solves yet."
         
         conn = sqlite3.connect('ctf_data.db')
