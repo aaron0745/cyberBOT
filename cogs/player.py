@@ -610,10 +610,16 @@ class Player(commands.Cog):
     async def update_challenge_card(self, challenge_id):
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
+        
+        # 1. Get Challenge Info (Message ID, Channel ID, Points)
         c.execute("SELECT msg_id, channel_id, points FROM flags WHERE challenge_id = ?", (challenge_id,))
         data = c.fetchone()
-        if not data: conn.close(); return
+        if not data: 
+            conn.close()
+            return
         mid, cid, base_pts = data
+
+        # 2. Get Solvers
         c.execute("SELECT user_id FROM solves WHERE challenge_id = ? ORDER BY timestamp ASC", (challenge_id,))
         solves = c.fetchall()
         conn.close()
@@ -624,45 +630,66 @@ class Player(commands.Cog):
             msg = await channel.fetch_message(mid)
             embed = msg.embeds[0]
 
+            # --- CRITICAL FIX START ---
+            # We filter the fields we want to KEEP.
+            # We MUST include "Time Left" here, otherwise it gets deleted when a user solves.
             saved_fields = []
             for f in embed.fields:
-                if "Bounty" in f.name or "Category" in f.name or "Time Limit" in f.name:
+                if "Bounty" in f.name or "Category" in f.name or "Time Limit" in f.name or "Time Left" in f.name:
                     saved_fields.append(f)
+            # --- CRITICAL FIX END ---
+
+            # 3. Rebuild the Embed
             embed.clear_fields()
+            
+            # Add back the saved fields (Bounty, Category, Time Left)
             for f in saved_fields:
                 embed.add_field(name=f.name, value=f.value, inline=f.inline)
 
+            # 4. Update First Blood
             fb_value = "*Waiting...*"
             if len(solves) > 0:
                 first_uid = solves[0][0]
                 u = channel.guild.get_member(first_uid)
                 name = u.display_name if u else "Agent"
+                # BONUSES must be defined at the top of your file
                 fb_value = f"🥇 **{name}** (+{base_pts + BONUSES.get(0, 0)})"
+            
             embed.add_field(name="🩸 First Blood", value=fb_value, inline=False)
 
+            # 5. Add List of Solvers (Paginated in chunks of 10)
             if len(solves) > 1:
-                others = solves[1:201]
+                others = solves[1:201] # Limit to next 200 solvers to prevent limits
                 current_chunk = ""
                 page_number = 1
+                
                 for i, (uid,) in enumerate(others):
                     real_index = i + 1
+                    
+                    # Create a new field every 10 names
                     if i > 0 and i % 10 == 0:
                         title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
                         embed.add_field(name=title, value=current_chunk, inline=False)
                         current_chunk = ""
                         page_number += 1
+                    
                     u = channel.guild.get_member(uid)
                     name = u.display_name if u else "Agent"
                     bonus = BONUSES.get(real_index, 0)
+                    
+                    # Icons for 2nd and 3rd place
                     icon = "🥈" if real_index==1 else "🥉" if real_index==2 else "✅"
                     current_chunk += f"{icon} **{name}** (+{base_pts+bonus})\n"
 
+                # Add the final chunk
                 if current_chunk:
                     title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
                     embed.add_field(name=title, value=current_chunk, inline=False)
 
             await msg.edit(embed=embed)
-        except: pass
+            
+        except Exception as e:
+            print(f"Error updating card for {challenge_id}: {e}")
 
 async def setup(bot):
     await bot.add_cog(Player(bot))

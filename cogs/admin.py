@@ -1,9 +1,11 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ext import tasks
 import sqlite3
 import os
 import time
+
 
 # Must match the bonuses in player.py
 BONUSES = {0: 50, 1: 25, 2: 10}
@@ -11,6 +13,77 @@ BONUSES = {0: 50, 1: 25, 2: 10}
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.check_expiry.start() # <--- NEW: Starts the timer watcher
+
+    def cog_unload(self):
+        self.check_expiry.cancel()
+
+# --- BACKGROUND TASK: EXPIRES CHALLENGES ---
+    @tasks.loop(seconds=10)
+    async def check_expiry(self):
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+        
+        # Get active challenges
+        c.execute("SELECT challenge_id, channel_id, msg_id, posted_at FROM flags WHERE msg_id IS NOT NULL")
+        active_challenges = c.fetchall()
+        
+        current_time = int(time.time())
+        # --- SET THIS TO YOUR DESIRED DURATION (e.g., 2 mins = 120 seconds) ---
+        duration = 2 * 60 
+
+        for challenge_id, channel_id, msg_id, posted_at in active_challenges:
+            if not posted_at: continue
+
+            # If time is up
+            if current_time > (posted_at + duration):
+                try:
+                    channel = self.bot.get_channel(channel_id)
+                    if channel:
+                        msg = await channel.fetch_message(msg_id)
+                        embed = msg.embeds[0]
+
+                        # --- SMART FIELD FINDER ---
+                        # We search for the field named "Time Left"
+                        time_field_index = -1
+                        for i, field in enumerate(embed.fields):
+                            if "Time Left" in field.name:
+                                time_field_index = i
+                                break
+                        
+                        # Case 1: Field exists, check if already expired
+                        if time_field_index != -1:
+                            if "🔴 Expired" in embed.fields[time_field_index].value:
+                                continue # Already updated, skip
+                            
+                            # Update existing field
+                            embed.set_field_at(time_field_index, name="⏳ Time Left", value="**🔴 Expired**", inline=True)
+
+                        # Case 2: Field is MISSING (safe fallback). 
+                        # Insert at index 2 (after Bounty and Category)
+                        else:
+                            embed.insert_field_at(2, name="⏳ Time Left", value="**🔴 Expired**", inline=True)
+
+                        # --- DISABLE BUTTONS ---
+                        view = discord.ui.View.from_message(msg)
+                        for child in view.children:
+                            if hasattr(child, "label") and child.label == "Submit Flag":
+                                child.disabled = True
+                                child.style = discord.ButtonStyle.danger
+                                child.label = "Closed"
+                        
+                        await msg.edit(embed=embed, view=view)
+                        print(f"🚨 Expired challenge: {challenge_id}")
+
+                except Exception as e:
+                    # Fails silently if message was deleted
+                    pass
+        
+        conn.close()
+
+    @check_expiry.before_loop
+    async def before_check_expiry(self):
+        await self.bot.wait_until_ready()
 
     # --- 0. SETUP COMMANDS ---
     
@@ -130,7 +203,7 @@ class Admin(commands.Cog):
         
         await interaction.followup.send(msg)
 
-    # --- 2. ADD HINT ---
+# --- 2. ADD HINT ---
     @app_commands.command(name="add_hint", description="Add a purchasable hint to a challenge")
     @app_commands.describe(challenge_id="The challenge ID", text="The hint message", cost="Cost in points")
     @app_commands.default_permissions(administrator=True)
@@ -138,21 +211,50 @@ class Admin(commands.Cog):
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
         
-        # Check if challenge exists
-        c.execute("SELECT challenge_id FROM flags WHERE challenge_id = ?", (challenge_id,))
-        if not c.fetchone():
+        # Check if challenge exists and get post info
+        c.execute("SELECT challenge_id, channel_id, msg_id FROM flags WHERE challenge_id = ?", (challenge_id,))
+        row = c.fetchone()
+        
+        if not row:
             conn.close()
             await interaction.response.send_message(f"❌ Challenge **{challenge_id}** does not exist.", ephemeral=True)
             return
 
+        cid, channel_id, msg_id = row
+
+        # Insert the hint
         c.execute("INSERT INTO hints (challenge_id, hint_text, cost) VALUES (?, ?, ?)", (challenge_id, text, cost))
         conn.commit()
         conn.close()
         
-        await interaction.response.send_message(f"✅ Added hint for **{challenge_id}** (Cost: {cost} pts).", ephemeral=True)
+        # --- UPDATE DISCORD MESSAGE IF IT EXISTS ---
+        update_status = ""
+        if channel_id and msg_id:
+            try:
+                ch = self.bot.get_channel(channel_id)
+                if ch:
+                    msg = await ch.fetch_message(msg_id)
+                    
+                    # Get existing view (buttons)
+                    view = discord.ui.View.from_message(msg)
+                    
+                    # Check if hint button is already there
+                    has_hint_btn = any(child.custom_id == f"hints:{challenge_id}" for child in view.children if hasattr(child, "custom_id"))
+                    
+                    if not has_hint_btn:
+                        # Add the button dynamically
+                        btn_hint = discord.ui.Button(label="Hints", style=discord.ButtonStyle.gray, emoji="💡", custom_id=f"hints:{challenge_id}")
+                        view.add_item(btn_hint)
+                        await msg.edit(view=view)
+                        update_status = "\n💡 **Button added to live post!**"
+            except Exception as e:
+                update_status = f"\n⚠️ Could not update live post: {e}"
+        # -------------------------------------------
 
-    # --- 3. POST CHALLENGE ---
-    @app_commands.command(name="post", description="Post a challenge to a specific channel (Starts 24h Timer)")
+        await interaction.response.send_message(f"✅ Added hint for **{challenge_id}** (Cost: {cost} pts).{update_status}", ephemeral=True)
+
+# --- 3. POST CHALLENGE ---
+    @app_commands.command(name="post", description="Post a challenge (Starts 2m Timer)")
     @app_commands.default_permissions(administrator=True)
     async def post(self, 
                    interaction: discord.Interaction, 
@@ -184,6 +286,9 @@ class Admin(commands.Cog):
         if connection_info:
             final_desc += f"\n**📡 Connection:**\n```text\n{connection_info}\n```"
 
+        current_time = int(time.time())
+        end_time = current_time + (2 * 60) # 2 MINUTES
+
         embed = discord.Embed(
             title=f"🛡️ MISSION: {challenge_id}",
             description=final_desc,
@@ -191,7 +296,7 @@ class Admin(commands.Cog):
         )
         embed.add_field(name="💰 Bounty", value=f"**{points} Points**", inline=True)
         embed.add_field(name="📂 Category", value=f"**{category}**", inline=True)
-        embed.add_field(name="⏳ Time Limit", value="**24 Hours**", inline=True)
+        embed.add_field(name="⏳ Time Left", value=f"<t:{end_time}:R>", inline=True)
         embed.add_field(name="🩸 First Blood", value="*Waiting...*", inline=False) 
 
         if image_url:
@@ -199,12 +304,21 @@ class Admin(commands.Cog):
         if file:
             embed.set_footer(text="📁 See attached file below")
         
+        # --- LOGIC TO CHECK IF HINTS EXIST ---
+        c.execute("SELECT COUNT(*) FROM hints WHERE challenge_id = ?", (challenge_id,))
+        has_hints = c.fetchone()[0] > 0
+
         # BUTTONS
         view = discord.ui.View(timeout=None)
         btn_flag = discord.ui.Button(label="Submit Flag", style=discord.ButtonStyle.green, emoji="🚩", custom_id=f"submit:{challenge_id}")
         btn_hint = discord.ui.Button(label="Hints", style=discord.ButtonStyle.gray, emoji="💡", custom_id=f"hints:{challenge_id}")
+        
         view.add_item(btn_flag)
-        view.add_item(btn_hint)
+        
+        # ONLY ADD HINT BUTTON IF HINTS EXIST
+        if has_hints:
+            view.add_item(btn_hint)
+        # -------------------------------------
 
         try:
             msg = await target_channel.send(embed=embed, view=view)
@@ -213,12 +327,12 @@ class Admin(commands.Cog):
                 f = await file.to_file()
                 await target_channel.send(file=f)
 
-            # UPDATE DB WITH MESSAGE ID AND POST TIME
-            current_time = int(time.time())
             c.execute("UPDATE flags SET msg_id = ?, channel_id = ?, posted_at = ? WHERE challenge_id = ?", 
-                     (msg.id, target_channel.id, current_time, challenge_id))
+                      (msg.id, target_channel.id, current_time, challenge_id))
             conn.commit()
-            await interaction.followup.send(f"✅ Posted **{challenge_id}** in {target_channel.mention}!\n⏳ 24h Timer started.")
+            
+            hint_status = " (Hints available)" if has_hints else " (No hints yet)"
+            await interaction.followup.send(f"✅ Posted **{challenge_id}**!{hint_status}")
         except Exception as e:
             await interaction.followup.send(f"⚠️ Failed to post: {e}")
         
