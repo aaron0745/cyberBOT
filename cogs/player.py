@@ -744,7 +744,7 @@ class Player(commands.Cog):
                     real_index = i + 1
                     
                     # Create a new field every 10 names
-                    if i > 0 and i % 10 == 0:
+                    if i > 0 and i % 20 == 0:
                         title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
                         embed.add_field(name=title, value=current_chunk, inline=False)
                         current_chunk = ""
@@ -759,9 +759,9 @@ class Player(commands.Cog):
                     current_chunk += f"{icon} **{name}** (+{base_pts+bonus})\n"
 
                 # Add the final chunk
-                if current_chunk:
-                    title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
-                    embed.add_field(name=title, value=current_chunk, inline=False)
+               #if current_chunk:
+                    #title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
+                    #embed.add_field(name=title, value=current_chunk, inline=False)
 
             await msg.edit(embed=embed)
             
