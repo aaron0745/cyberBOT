@@ -3,3 +3,5 @@ __pycache__/
 venv
 ctf_data.db
 ctf_data.sql
+before_revert.sql
+
