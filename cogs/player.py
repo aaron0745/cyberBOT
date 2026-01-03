@@ -289,23 +289,75 @@ class Player(commands.Cog):
         width, height = 900, 350
         bg_color = (15, 15, 20)  
         
-        # --- 1. DETERMINE ROLE & COLORS ---
-        if is_champion:
-            primary = (255, 215, 0)       # Gold
-            fill_color = (40, 30, 0)    
-            text_color = "white"
+        # --- 1. DETERMINE ROLE & COLORS (UPDATED LOGIC) ---
+        # Parse the rank number from string (e.g. "#1" -> 1)
+        try:
+            rank_num = int(rank.replace("#", ""))
+        except:
+            rank_num = 999 # Fallback for N/A
+
+        # DEFAULT SETTINGS (Recruit)
+        primary = (100, 100, 100)       # Grey
+        fill_color = (30, 30, 35)    
+        text_color = "white"
+        badge_text_color = (200, 200, 200) 
+        role_name = "RECRUIT"
+        is_top_tier = False # Used for Diamond icon
+
+        # LOGIC TREE
+        # LOGIC TREE
+        if rank_num == 1:
+            # 🥇 RANK 1: CHAMPION (Gold)
+            primary = (255, 215, 0)        
+            fill_color = (40, 30, 0)     
             badge_text_color = (255, 230, 150) 
             role_name = "CHAMPION"
-        elif rank == "N/A" or points == 0:
-            primary = (100, 100, 100)     # Grey for newbies
-            fill_color = (30, 30, 35)    
-            text_color = "white"
-            badge_text_color = (200, 200, 200) 
-            role_name = "RECRUIT"         # <--- NEW STATUS
-        else:
-            primary = (0, 255, 230)       # Cyan for players
-            fill_color = (0, 40, 40)    
-            text_color = "white"
+            is_top_tier = True
+        
+        elif rank_num == 2:
+            # 🥈 RANK 2: VANGUARD (Platinum)
+            primary = (229, 228, 226)      
+            fill_color = (45, 45, 50)     
+            badge_text_color = (255, 255, 255) 
+            role_name = "VANGUARD"
+            is_top_tier = True
+
+        elif rank_num == 3:
+            # 🥉 RANK 3: CHALLENGER (Bronze)
+            primary = (205, 127, 50)       
+            fill_color = (40, 20, 10)      
+            badge_text_color = (255, 200, 180) 
+            role_name = "CHALLENGER"
+            is_top_tier = True
+
+        elif 4 <= rank_num <= 10:
+            # 🔴 RANKS 4-10: SENTINEL (Crimson Red)
+            primary = (220, 20, 60)       
+            fill_color = (50, 10, 15)      # Dark Red background
+            badge_text_color = (255, 200, 200)
+            role_name = "SENTINEL"
+            is_top_tier = False
+
+        elif 11 <= rank_num <= 15:
+            # 🟠 RANKS 11-15: STRIKER (Burnt Orange)
+            primary = (211, 84, 0)       
+            fill_color = (45, 20, 5)       # Dark Orange/Brown background
+            badge_text_color = (255, 220, 180)
+            role_name = "STRIKER"
+            is_top_tier = False
+
+        elif 16 <= rank_num <= 20:
+            # 🔵 RANKS 16-20: WATCHER (Steel Blue)
+            primary = (70, 130, 180)       
+            fill_color = (20, 30, 45)      # Dark Slate background
+            badge_text_color = (200, 230, 255)
+            role_name = "WATCHER"
+            is_top_tier = False
+
+        elif points > 0:
+            # ✅ STANDARD PLAYER: OPERATIVE (Cyan)
+            primary = (0, 255, 230)        
+            fill_color = (0, 40, 40)     
             badge_text_color = (200, 255, 255) 
             role_name = "OPERATIVE"
 
@@ -349,16 +401,12 @@ class Player(commands.Cog):
             # Draw User's Initial
             try:
                 initial = user.display_name[0].upper()
-                # Try to use a large font for the initial
                 initial_font = ImageFont.truetype("font.ttf", 100)
-                # Center the letter
                 bbox = draw.textbbox((0, 0), initial, font=initial_font)
                 w = bbox[2] - bbox[0]
                 h = bbox[3] - bbox[1]
                 draw.text((150 - w/2, 175 - h/1.5), initial, fill=primary, font=initial_font)
-            except:
-                # Fallback if font fails
-                pass
+            except: pass
 
         # Draw Avatar Border and Arcs
         draw.ellipse((50, 75, 250, 275), outline=primary, width=4)
@@ -413,7 +461,8 @@ class Player(commands.Cog):
         icon_x = bx + 25
         icon_y = by + (badge_h / 2)
         
-        if is_champion:
+        # Diamond for Top 3, Circle for others
+        if is_top_tier:
             r = 7
             diamond = [(icon_x, icon_y - r - 2), (icon_x + r + 2, icon_y), (icon_x, icon_y + r + 2), (icon_x - r - 2, icon_y)]
             draw.polygon(diamond, fill=primary)
