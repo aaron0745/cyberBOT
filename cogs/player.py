@@ -11,6 +11,74 @@ from io import BytesIO
 BONUSES = {0: 50, 1: 25, 2: 10}
 COOLDOWNS = {} 
 
+
+# --- PERSISTENT PAGINATOR CLASS ---
+class SolverPaginator(discord.ui.View):
+    def __init__(self, others_list, challenge_id, current_page=0, items_per_page=10):
+        super().__init__(timeout=None) # Persistent view
+        self.others = others_list
+        self.challenge_id = challenge_id
+        self.per_page = items_per_page
+        self.current_page = current_page
+        self.total_pages = max(1, (len(others_list) + items_per_page - 1) // items_per_page)
+
+        # --- 1. PREVIOUS BUTTON ---
+        prev_btn = discord.ui.Button(
+            label="◀️", 
+            style=discord.ButtonStyle.primary, 
+            custom_id=f"nav_prev:{challenge_id}", # ID stores the Challenge ID
+            disabled=(self.current_page == 0)      # Disable if on Page 1
+        )
+        self.add_item(prev_btn)
+
+        # --- 2. SUBMIT BUTTON ---
+        submit_btn = discord.ui.Button(
+            label="🚩 Submit Flag", 
+            style=discord.ButtonStyle.green, 
+            custom_id=f"submit:{challenge_id}"
+        )
+        self.add_item(submit_btn)
+
+        # --- 3. HINT BUTTON ---
+        hint_btn = discord.ui.Button(
+            label="💡 Get Hint", 
+            style=discord.ButtonStyle.blurple, 
+            custom_id=f"hints:{challenge_id}"
+        )
+        self.add_item(hint_btn)
+
+        # --- 4. NEXT BUTTON ---
+        next_btn = discord.ui.Button(
+            label="▶️", 
+            style=discord.ButtonStyle.primary, 
+            custom_id=f"nav_next:{challenge_id}", # ID stores the Challenge ID
+            disabled=(self.current_page == self.total_pages - 1) # Disable if last page
+        )
+        self.add_item(next_btn)
+
+    def get_page_content(self, guild):
+        """Generates the text list for the current page"""
+        start = self.current_page * self.per_page
+        end = start + self.per_page
+        batch = self.others[start:end]
+        
+        text = ""
+        rank_offset = start + 2 
+        
+        for i, (uid,) in enumerate(batch):
+            real_index = rank_offset + i
+            u = guild.get_member(uid)
+            name = u.display_name if u else "Agent"
+            
+            icon = "🥈" if real_index == 2 else "🥉" if real_index == 3 else "✅"
+            bonus = BONUSES.get(real_index - 1, 0)
+            points_str = f"(+{bonus})" if bonus > 0 else ""
+            
+            text += f"`#{real_index}` {icon} **{name}** {points_str}\n"
+            
+        return text if text else "Waiting for more agents..."
+
+
 def get_config_id(key):
     """Helper to fetch channel/role IDs from DB"""
     try:
@@ -498,6 +566,74 @@ class Player(commands.Cog):
         gc.collect() 
         return buffer
 
+
+    # --- LISTENER: HANDLES CLICKS GLOBALLY (RESTART PROOF) ---
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction):
+        # Only care about buttons
+        if not interaction.type == discord.InteractionType.component:
+            return
+
+        cid = interaction.data.get('custom_id', '')
+
+        # Check if it's a Navigation Button (prev/next)
+        if cid.startswith("nav_prev:") or cid.startswith("nav_next:"):
+            # 1. Parse Challenge ID from the button ID
+            _, challenge_id = cid.split(":") 
+            
+            # 2. Get the current Embed
+            embed = interaction.message.embeds[0]
+            
+            # 3. Figure out Current Page from the Embed Title
+            current_page = 0
+            for field in embed.fields:
+                if "Solvers (Page" in field.name:
+                    try:
+                        # Extract "2" from "Solvers (Page 2/5)"
+                        # Split by space -> ["Solvers", "(Page", "2/5)"] -> "2/5)" -> "2"
+                        parts = field.name.split()
+                        page_part = parts[2] # "2/5)"
+                        current_page = int(page_part.split('/')[0]) - 1 # Convert to 0-index
+                    except:
+                        current_page = 0
+                    break
+
+            # 4. Calculate New Page
+            if "nav_next" in cid:
+                current_page += 1
+            else:
+                current_page -= 1
+
+            # 5. Fetch Data from DB (Because we are stateless!)
+            conn = sqlite3.connect('ctf_data.db')
+            c = conn.cursor()
+            c.execute("SELECT user_id FROM solves WHERE challenge_id = ? ORDER BY timestamp ASC", (challenge_id,))
+            solves = c.fetchall()
+            conn.close()
+
+            # 6. Rebuild the View and Embed
+            if len(solves) > 1:
+                others = solves[1:] # Skip first blood
+                
+                # Create the View with the NEW page number
+                view = SolverPaginator(others, challenge_id, current_page=current_page)
+                new_text = view.get_page_content(interaction.guild)
+                
+                # Update the Embed Field
+                field_name = f"📜 Solvers (Page {view.current_page + 1}/{view.total_pages})"
+                
+                # Find and replace the Solvers field
+                for i, field in enumerate(embed.fields):
+                    if "Solvers" in field.name:
+                        embed.set_field_at(index=i, name=field_name, value=new_text, inline=False)
+                        break
+                
+                await interaction.response.edit_message(embed=embed, view=view)
+            else:
+                await interaction.response.send_message("❌ Error: Solver list data changed.", ephemeral=True)
+
+
+
     # --- COMMANDS ---
 
     @app_commands.command(name="help", description="Show mission instructions")
@@ -737,7 +873,7 @@ class Player(commands.Cog):
         conn = sqlite3.connect('ctf_data.db')
         c = conn.cursor()
         
-        # 1. Get Challenge Info (Message ID, Channel ID, Points)
+        # Get Info
         c.execute("SELECT msg_id, channel_id, points FROM flags WHERE challenge_id = ?", (challenge_id,))
         data = c.fetchone()
         if not data: 
@@ -745,7 +881,7 @@ class Player(commands.Cog):
             return
         mid, cid, base_pts = data
 
-        # 2. Get Solvers
+        # Get Solvers
         c.execute("SELECT user_id FROM solves WHERE challenge_id = ? ORDER BY timestamp ASC", (challenge_id,))
         solves = c.fetchall()
         conn.close()
@@ -756,63 +892,42 @@ class Player(commands.Cog):
             msg = await channel.fetch_message(mid)
             embed = msg.embeds[0]
 
-            # --- CRITICAL FIX START ---
-            # We filter the fields we want to KEEP.
-            # We MUST include "Time Left" here, otherwise it gets deleted when a user solves.
-            saved_fields = []
-            for f in embed.fields:
-                if "Bounty" in f.name or "Category" in f.name or "Time Limit" in f.name or "Time Left" in f.name:
-                    saved_fields.append(f)
-            # --- CRITICAL FIX END ---
-
-            # 3. Rebuild the Embed
+            # Preserve static fields
+            saved_fields = [f for f in embed.fields if "Solvers" not in f.name and "First Blood" not in f.name]
             embed.clear_fields()
-            
-            # Add back the saved fields (Bounty, Category, Time Left)
             for f in saved_fields:
                 embed.add_field(name=f.name, value=f.value, inline=f.inline)
 
-            # 4. Update First Blood
-            fb_value = "*Waiting...*"
+            # First Blood
             if len(solves) > 0:
                 first_uid = solves[0][0]
                 u = channel.guild.get_member(first_uid)
                 name = u.display_name if u else "Agent"
-                # BONUSES must be defined at the top of your file
-                fb_value = f"🥇 **{name}** (+{base_pts + BONUSES.get(0, 0)})"
-            
-            embed.add_field(name="🩸 First Blood", value=fb_value, inline=False)
+                fb_bonus = BONUSES.get(0, 0)
+                embed.add_field(name="🩸 First Blood", value=f"🥇 **{name}** (+{base_pts + fb_bonus})", inline=False)
+            else:
+                embed.add_field(name="🩸 First Blood", value="*Waiting...*", inline=False)
 
-            # 5. Add List of Solvers (Paginated in chunks of 10)
+            # Pagination
+            view = None
             if len(solves) > 1:
-                others = solves[1:201] # Limit to next 200 solvers to prevent limits
-                current_chunk = ""
-                page_number = 1
+                others = solves[1:]
+                # Init at Page 0
+                view = SolverPaginator(others, challenge_id, current_page=0) 
                 
-                for i, (uid,) in enumerate(others):
-                    real_index = i + 1
-                    
-                    # Create a new field every 10 names
-                    if i > 0 and i % 20 == 0:
-                        title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
-                        embed.add_field(name=title, value=current_chunk, inline=False)
-                        current_chunk = ""
-                        page_number += 1
-                    
-                    u = channel.guild.get_member(uid)
-                    name = u.display_name if u else "Agent"
-                    bonus = BONUSES.get(real_index, 0)
-                    
-                    # Icons for 2nd and 3rd place
-                    icon = "🥈" if real_index==1 else "🥉" if real_index==2 else "✅"
-                    current_chunk += f"{icon} **{name}** (+{base_pts+bonus})\n"
+                embed.add_field(
+                    name=f"📜 Solvers (Page 1/{view.total_pages})", 
+                    value=view.get_page_content(channel.guild), 
+                    inline=False
+                )
+            else:
+                # Default view if no pagination needed
+                view = discord.ui.View(timeout=None)
+                view.add_item(discord.ui.Button(label="🚩 Submit Flag", style=discord.ButtonStyle.green, custom_id=f"submit:{challenge_id}"))
+                view.add_item(discord.ui.Button(label="💡 Get Hint", style=discord.ButtonStyle.blurple, custom_id=f"hints:{challenge_id}"))
+                embed.add_field(name="📜 Solvers", value="Waiting for more agents...", inline=False)
 
-                # Add the final chunk
-               #if current_chunk:
-                    #title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
-                    #embed.add_field(name=title, value=current_chunk, inline=False)
-
-            await msg.edit(embed=embed)
+            await msg.edit(embed=embed, view=view)
             
         except Exception as e:
             print(f"Error updating card for {challenge_id}: {e}")
