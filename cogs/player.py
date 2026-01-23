@@ -23,6 +23,96 @@ def get_config_id(key):
     except:
         return None
 
+
+# --- SOLVERS LIST PAGINATION VIEW ---
+class SolversView(discord.ui.View):
+    def __init__(self, challenge_id, guild, base_points, page=0):
+        super().__init__(timeout=300)
+        self.challenge_id = challenge_id
+        self.guild = guild
+        self.base_points = base_points
+        self.page = page
+        self.update_buttons()
+    
+    def get_solvers_data(self):
+        conn = sqlite3.connect('ctf_data.db')
+        c = conn.cursor()
+        c.execute("SELECT user_id FROM solves WHERE challenge_id = ? ORDER BY timestamp ASC", (self.challenge_id,))
+        solvers = c.fetchall()
+        conn.close()
+        return solvers
+    
+    def create_embed(self):
+        solvers = self.get_solvers_data()
+        total_solvers = len(solvers)
+        per_page = 10
+        start_idx = self.page * per_page
+        end_idx = start_idx + per_page
+        page_solvers = solvers[start_idx:end_idx]
+        
+        embed = discord.Embed(
+            title=f"🏆 Solvers List: {self.challenge_id}",
+            description=f"**Total Solves:** {total_solvers}\n**Page:** {self.page + 1}/{max(1, (total_solvers + per_page - 1) // per_page)}",
+            color=discord.Color.blue()
+        )
+        
+        if not page_solvers:
+            embed.add_field(name="No Solvers", value="No one has solved this challenge yet.", inline=False)
+            return embed
+        
+        solvers_text = ""
+        for i, (user_id,) in enumerate(page_solvers):
+            actual_rank = start_idx + i
+            member = self.guild.get_member(user_id)
+            name = member.display_name if member else "Unknown Agent"
+            bonus = BONUSES.get(actual_rank, 0)
+            total_pts = self.base_points + bonus
+            
+            if actual_rank == 0:
+                icon = "🩸"
+            elif actual_rank == 1:
+                icon = "🥈"
+            elif actual_rank == 2:
+                icon = "🥉"
+            else:
+                icon = f"#{actual_rank + 1}"
+            
+            solvers_text += f"{icon} **{name}** — +{total_pts} pts"
+            if bonus > 0:
+                solvers_text += f" *(+{bonus} bonus)*"
+            solvers_text += "\n"
+        
+        embed.add_field(name="👥 Solvers", value=solvers_text, inline=False)
+        embed.set_footer(text="This message will expire in 5 minutes")
+        return embed
+    
+    def update_buttons(self):
+        solvers = self.get_solvers_data()
+        total_pages = max(1, (len(solvers) + 9) // 10)
+        self.children[0].disabled = (self.page == 0)
+        self.children[1].disabled = (self.page >= total_pages - 1)
+    
+    @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.gray, disabled=True)
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page -= 1
+        self.update_buttons()
+        embed = self.create_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
+    
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.gray)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page += 1
+        self.update_buttons()
+        embed = self.create_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
+    
+    @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.green)
+    async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.update_buttons()
+        embed = self.create_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
+
+
 # --- HINT SYSTEM ---
 class HintSelect(discord.ui.Select):
     def __init__(self, hints, bot, user_id):
@@ -284,6 +374,24 @@ class Player(commands.Cog):
                     await interaction.response.send_message("🤷‍♂️ **No hints available** for this challenge.", ephemeral=True)
                 else:
                     await interaction.response.send_message(view=HintView(hints, self.bot, interaction.user.id), ephemeral=True)
+
+            elif custom_id.startswith("solvers:"):
+                challenge_id = custom_id.split(":")[1]
+    
+                conn = sqlite3.connect('ctf_data.db')
+                c = conn.cursor()
+                c.execute("SELECT points FROM flags WHERE challenge_id = ?", (challenge_id,))
+                result = c.fetchone()
+                conn.close()
+    
+                if not result:
+                    await interaction.response.send_message("❌ Challenge not found.", ephemeral=True)
+                    return
+    
+                base_points = result[0]
+                view = SolversView(challenge_id, interaction.guild, base_points)
+                embed = view.create_embed()
+                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     def draw_profile_card(self, user, rank, points, solves, avatar_bytes, is_champion):
         width, height = 900, 350
@@ -748,6 +856,9 @@ class Player(commands.Cog):
         # 2. Get Solvers
         c.execute("SELECT user_id FROM solves WHERE challenge_id = ? ORDER BY timestamp ASC", (challenge_id,))
         solves = c.fetchall()
+        c.execute("SELECT COUNT(*) FROM hints WHERE challenge_id = ?", (challenge_id,))
+        hint_count = c.fetchone()[0]
+
         conn.close()
 
         try:
@@ -783,36 +894,33 @@ class Player(commands.Cog):
             
             embed.add_field(name="🩸 First Blood", value=fb_value, inline=False)
 
-            # 5. Add List of Solvers (Paginated in chunks of 10)
+           # --- DYNAMIC BUTTONS ---
+            view = discord.ui.View(timeout=None)
+
+            # 1. Always add Submit
+            view.add_item(discord.ui.Button(
+                label="🚩 Submit Flag", 
+                style=discord.ButtonStyle.green, 
+                custom_id=f"submit:{challenge_id}"
+            ))
+            
+            # 2. Add Hint ONLY if hints exist
+            if hint_count > 0:
+                view.add_item(discord.ui.Button(
+                    label="💡 Get Hint", 
+                    style=discord.ButtonStyle.gray, 
+                    custom_id=f"hints:{challenge_id}"
+                ))
+            
+            # 3. Add Solvers ONLY if MORE than 1 solve
             if len(solves) > 1:
-                others = solves[1:201] # Limit to next 200 solvers to prevent limits
-                current_chunk = ""
-                page_number = 1
-                
-                for i, (uid,) in enumerate(others):
-                    real_index = i + 1
-                    
-                    # Create a new field every 10 names
-                    if i > 0 and i % 20 == 0:
-                        title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
-                        embed.add_field(name=title, value=current_chunk, inline=False)
-                        current_chunk = ""
-                        page_number += 1
-                    
-                    u = channel.guild.get_member(uid)
-                    name = u.display_name if u else "Agent"
-                    bonus = BONUSES.get(real_index, 0)
-                    
-                    # Icons for 2nd and 3rd place
-                    icon = "🥈" if real_index==1 else "🥉" if real_index==2 else "✅"
-                    current_chunk += f"{icon} **{name}** (+{base_pts+bonus})\n"
+                view.add_item(discord.ui.Button(
+                    label="👥 Solvers", 
+                    style=discord.ButtonStyle.blurple, 
+                    custom_id=f"solvers:{challenge_id}"
+                ))
 
-                # Add the final chunk
-               #if current_chunk:
-                    #title = "📜 Solvers" if page_number == 1 else f"📜 Solvers (Page {page_number})"
-                    #embed.add_field(name=title, value=current_chunk, inline=False)
-
-            await msg.edit(embed=embed)
+            await msg.edit(embed=embed, view=view)
             
         except Exception as e:
             print(f"Error updating card for {challenge_id}: {e}")
