@@ -1,207 +1,100 @@
-# 📘 Discord CTF Bot: Operator's Manual
+# 🤖 cyberBOT: High-Performance Discord CTF Engine
 
-## Part 1: Discord Developer Setup
-
-Before running the code, you must create the "Bot User" on Discord and get the keys.
-
-### 1. Create the Application
-
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
-2. Click **"New Application"** (Top Right).
-3. Name it (e.g., "CTF Commander") and click **Create**.
-
-### 2. Configure the Bot & Intents (Critical!)
-
-1. Click the **Bot** tab in the left menu.
-2. **Username:** Set the name users will see.
-3. **Privileged Gateway Intents:** Scroll down to this section. You **MUST** enable these three switches for the bot to work:
-   * ✅ **Presence Intent** (To set status like "Playing Capture The Flag")
-   * ✅ **Server Members Intent** (To track user leaderboards and bans)
-   * ✅ **Message Content Intent** (To read `!upload` commands)
-4. Click **Save Changes**.
-
-### 3. Get the Token
-
-1. On the **Bot** page, look for the **"Token"** section.
-2. Click **Reset Token**, then **Copy**.
-3. *Paste this into your `.env` file immediately (see Part 2).*
-
-### 4. Invite to Server
-
-1. Click **OAuth2** -> **URL Generator** in the left menu.
-2. **Scopes:** Check these two boxes:
-   * ✅ `bot`
-   * ✅ `applications.commands` (Required for Slash Commands)
-3. **Bot Permissions:**
-   * The easiest option is to check **Administrator**.
-   * *If you want restricted permissions, it needs:* `Send Messages`, `Embed Links`, `Attach Files`, `Manage Messages` (to delete older posts), `Read Message History`.
-4. Copy the **Generated URL** at the bottom and paste it into your browser to invite the bot.
+**cyberBOT** is a professional-grade, asynchronous Capture The Flag (CTF) engine designed for Discord. Engineered for maximum performance on mobile (Termux) and desktop (Kali Linux) environments, it features automated scheduling, persistent watchdogs, and millisecond-accurate tie-breaking.
 
 ---
 
-## Part 2: Installation & Configuration
+## 🚀 Key Features
 
-### 1. Folder Structure
+*   **Set & Forget Scheduling:** Queue missions and file uploads weeks in advance. Automated deployment at the exact `start_time`.
+*   **Anti-Deletion Watchdog:** If a mission post is deleted, cyberBOT detects it and re-posts it instantly, preserving the original deadline.
+*   **Dynamic Rank Roles:** Configure unlimited point-based milestones via commands (e.g., *Novice* @ 100, *Expert* @ 1000).
+*   **Fair Economics:** Recursive refund system. Deleting a mission or a hint automatically restores points to all affected players.
+*   **Millisecond Precision:** Powered by asynchronous SQLite with `REAL` timestamps for mathematically perfect "First Blood" tie-breaking.
+*   **Dual-Stream Logging:** Advanced operational visibility. Correct solves and collusion warnings go to a dedicated channel, while every failed attempt (including the user and the exact wrong flag submitted) is logged to another.
+*   **Persistent Architecture:** Optimized with **WAL Mode** and persistent connections to prevent database lag on ARM/mobile hardware.
+*   **Live-Swap Restorations:** Import database backups via Discord without rebooting the engine.
 
-Ensure your project folder looks exactly like this:
+---
 
-```text
-/CTF-Bot
-  ├── .env                 # Stores your Token
-  ├── main.py              # The brain (Database & Sync)
-  ├── font.ttf             # font the profile card uses
-  ├── cogs/
-  │   ├── admin.py         # Admin commands
-  │   └── player.py        # Player commands & Logic
+## 🛠️ Installation & Setup
+
+### 1. Prerequisites
+Ensure you have Python 3.9+ and Pip installed.
+
+**Kali / Debian / Linux:**
+```bash
+sudo apt update && sudo apt install python3 python3-pip python3-venv -y
 ```
 
-### 2. The `.env` File
+**Termux (Android):**
+```bash
+pkg update && pkg upgrade
+pkg install python python-pip
+```
 
-Create a file named `.env` and paste your token inside:
+### 2. Deployment
+```bash
+# Clone the repository and enter the directory
+cd cyberBOT
 
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install requirements
+pip install -r requirements.txt
+```
+
+### 3. Configuration (.env)
+Create a `.env` file in the root directory (see `.env.example`):
 ```ini
-DISCORD_TOKEN=MTE2Nz... (your token here) ...
+DISCORD_TOKEN=your_bot_token_here
+GUILD_ID=your_server_id_here
 ```
-
-### 3. Install Requirements
-
-Open your terminal/command prompt and install the library:
-
-```bash
-pip install discord.py python-dotenv
-```
-
-### 4. Launch
-
-Run the bot:
-
-```bash
-python main.py
-```
-
-*You should see:* `✅ Logged in as: CTF Commander`
+*   **Note:** The `GUILD_ID` is required for **Instant Guild Sync**, bypassing Discord's 1-hour global command cache delay.
 
 ---
 
-## Part 3: Maintenance Commands (Prefix)
+## 🎮 Operational Protocols
 
-These commands use the `!` prefix and are used to "wake up" the bot if Slash Commands (`/`) are not appearing.
+### Administrator Commands (Operational Control)
+*   **/setup:** Link leaderboard, challenge logs, wrong submissions, and general channels.
+*   **/set_rank_role:** Define a custom point threshold for any role.
+*   **/post:** Schedule a mission with files (Format: `DD/MM HH:MM`).
+*   **/edit:** Comprehensive modification of any mission attribute (renaming IDs, changing points, updating deadlines).
+*   **/delete:** Remove a mission and process recursive point refunds.
+*   **/wipe_all:** **NUCLEAR**: Reset the entire database and local storage for a new season.
 
-| Command | Usage | Description |
-| --- | --- | --- |
-| **`!upload`** | `!upload` | **Quick Sync.** Pushes the latest slash commands to the current server. Use this if you just started the bot and don't see `/create`. |
-| **`!fix_commands`** | `!fix_commands` | **Nuclear Option.** Wipes all commands globally and re-uploads them. Use this if commands are "doubled" or refusing to update. |
-
-> **Note:** These commands are restricted to Administrators only in the code.
-> **`!fix_commands`** may sometimes break the commands menu, so get a backup before running this command and if it does restart the bot after deleting ctf_data.db and import the backup.
-
-
----
-
-## Part 4: Admin Commands (Slash)
-
-These commands are only visible to users with **Administrator** permissions.
-
-### Challenge Management
-
-* **/create**
-  * Creates a challenge in the database.
-  * *Inputs:* `id` (unique name), `points`, `flag`, `category`.
-
-* **/add_hint**
-  * Adds a clue that players can buy.
-  * *Inputs:* `challenge_id`, `text`, `cost`.
-
-* **/post**
-  * **The most important command.** Publishes the challenge to a Discord channel with the "Submit" and "Hint" buttons.
-  * *Inputs:* `challenge_id`, `description`, `file` (optional).
-
-* **/edit**
-  * Updates a challenge (points, flag, etc.) without deleting it.
-
-* **/delete**
-  * Permanently deletes a challenge and its logs from the database.
-
-* **/list**
-  * Shows all created challenges and their status (Posted vs Draft).
-
-* **/show**
-  * Reveals the secret flag and details of a specific challenge (Admin eyes only).
-
-* **/leaderboad**
-  * Updates the leaderboard at the instant (Admin only).
-  * Without using the command update takes 5 mins.
-
-### Judge / Moderation
-
-* **/revoke** `user` `challenge_id`
-  * Removes a specific solve from a player (e.g., if they cheated). Recalculates their score immediately.
-
-* **/ban_user** `user`
-  * Blacklists a user. They can no longer submit flags, even if they click the button.
-
-* **/unban_user** `user`
-  * Removes the player from the Blacklist. They can submit flags from now.
-
-
-### System / Backup (New)
-
-* **/export**
-  * **Backup Command.** Generates and sends a downloadable copy of the database (`ctf_data.db`).
-  * *Use Case:* Run this regularly to save your scoreboard and challenges.
-
-* **/import** `file`
-  * **Restore Command.** Uploads a `.db` file to **overwrite** the current database.
-  * *Warning:* This wipes the current live data and replaces it with the backup file.
-  * *Use Case:* Restoring data after a crash or moving the bot to a new server.
+### Agent Commands (Player Operations)
+*   **/help:** Detailed field manual for agents and admins.
+*   **/profile:** View your procedurally generated Agent ID card and standings.
+*   **/leaderboard:** Interactive, paginated global standings.
 
 ---
 
-## Part 5: Player Commands & Features
+## 🧪 Scoring & Mechanics
 
-These are visible to everyone.
-
-* **/help**
-  * Shows the manual. (Admins see extra controls; Players only see instructions).
-
-* **/profile** `user` (optional)
-  * Shows Rank, Score, and Solve count on a custom profile card (1 min cooldown).
-
-### Interactive Features (Buttons)
-
-Players interact via buttons on the challenge posts, not commands.
-
-1. **[ 🚩 Submit Flag ]**
-   * Opens a popup text box (Modal).
-   * Verifies flag instantly.
-   * **Cooldown:** 5 seconds between guesses (Anti-Spam).
-   * **Logic:** Preventing duplicate solves.
-
-2. **[ 💡 Hints ]**
-   * Shows a menu of hints for that challenge.
-   * Buying a hint deducts points from the user's profile immediately.
-
-3. **[ 👑 King of the Hill]**
-   * Only the #1 player leaderboard has a role.
-   * if another player reaches #1, a message like "new #1 stole Champion's Belt from old #1" in gen-chat.
-
-4. **[Auto role assigning]**
-   * When a player reaches the points (1500/5000/7500)they are assigned with (Script Kiddie/Hacker/Cyber God) roles.
-
+*   **Fixed Base + First Blood:**
+    *   🥇 **1st Solver:** Base + 50 pts
+    *   🥈 **2nd Solver:** Base + 25 pts
+    *   🥉 **3rd Solver:** Base + 10 pts
+*   **Anti-Cheat:** Automatic collusion detection flags solvers who capture the same flag within 60 seconds of each other.
+*   **High-Precision Standings:** Ties are decided by who reached the point total first, measured down to the millisecond.
 
 ---
 
-## Part 6: Scoring Mechanics
+## 📦 Database & Maintenance
 
-This bot uses a **Fixed Base + First Blood Bonus** system.
+cyberBOT uses **`bot.db`** (SQLite). 
+*   **Export:** Use `/export` to download a full backup.
+*   **Import:** Use `/import` to live-swap the database with a backup file.
+*   **Hardware Optimization:** WAL (Write-Ahead Logging) is enabled by default for concurrent I/O stability on Android/Termux.
 
-* **Base Points:** Determined by you when you `/create` (e.g., 500 pts).
-* **Bonuses:**
-  * 🥇 **1st Solver:** Base + **50** pts
-  * 🥈 **2nd Solver:** Base + **25** pts
-  * 🥉 **3rd Solver:** Base + **10** pts
-  * All subsequent solvers get Base points only.
+---
 
-* **Audit Logging:**
-  * The bot logs every Flag Capture, Hint Purchase, and Failed Attempt to your configured `LOG_CHANNEL_ID`.
-  * **Anti-Cheat Logic:** If Player A and Player B solve the same hard challenge within 60 seconds of each other, the bot flags it as "Suspected Flag Sharing" in the logs.
+## 📚 Official Documentation
+A complete distribution-ready LaTeX manual is available in the repository as **`CTF_Bot_Manual.tex`**. This document contains detailed TikZ diagrams, architectural schemas, and full deployment protocols.
+
+---
+**Developed for Peak Performance. Happy Hacking.**
