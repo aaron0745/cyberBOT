@@ -383,12 +383,15 @@ class Player(commands.Cog):
         self.leaderboard_refresh.start()
         
         try:
-            self.title_font = ImageFont.truetype("font.ttf", 65)
-            self.badge_font = ImageFont.truetype("font.ttf", 30)
-            self.label_font = ImageFont.truetype("font.ttf", 25)
-            self.value_font = ImageFont.truetype("font.ttf", 55)
+            # Scaled fonts for 1800x700 resolution
+            self.title_font = ImageFont.truetype("font.ttf", 130)
+            self.badge_font = ImageFont.truetype("font.ttf", 60)
+            self.label_font = ImageFont.truetype("font.ttf", 50)
+            self.value_font = ImageFont.truetype("font.ttf", 110)
+            self.small_font = ImageFont.truetype("font.ttf", 35)
+            self.micro_font = ImageFont.truetype("font.ttf", 24)
         except Exception:
-            self.title_font = self.badge_font = self.label_font = self.value_font = ImageFont.load_default()
+            self.title_font = self.badge_font = self.label_font = self.value_font = self.small_font = self.micro_font = ImageFont.load_default()
 
     def cog_unload(self):
         self.leaderboard_refresh.cancel()
@@ -425,16 +428,25 @@ class Player(commands.Cog):
                 view.update_buttons(max(1, (len(solvers) + 9) // 10))
                 await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    def draw_profile_card(self, user, rank, points, solves, avatar_bytes):
-        width, height = 900, 350
-        bg_color = (15, 15, 20)  
+    def draw_profile_card(self, user, rank, points, solves, avatar_bytes, next_goal=None, last_cats=None, earned_role="RECRUIT"):
+        width, height = 1800, 700
+        # Default Charcoal
+        bg_color = (20, 22, 25)  
+        if points == 999999:
+            # Deep Imperial Navy for the bot's background
+            bg_color = (0, 10, 30)
+
         try:
             rank_num = int(rank.replace("#", ""))
         except:
             rank_num = 999 
 
         primary = (0, 255, 230); fill_color = (0, 40, 40); b_text = (200, 255, 255); role = "OPERATIVE"
-        if rank_num == 1: primary = (255, 215, 0); fill_color = (40, 30, 0); b_text = (255, 230, 150); role = "CHAMPION"
+        # --- BOT OVERRIDE COLORS ---
+        if points == 999999:
+            # Royal Emerald & Jade Tech theme
+            primary = (0, 255, 120); fill_color = (0, 40, 20); b_text = (150, 255, 200); role = "SYSTEM CORE"
+        elif rank_num == 1: primary = (255, 215, 0); fill_color = (40, 30, 0); b_text = (255, 230, 150); role = "CHAMPION"
         elif rank_num == 2: primary = (229, 228, 226); fill_color = (45, 45, 50); b_text = (255, 255, 255); role = "VANGUARD"
         elif rank_num == 3: primary = (205, 127, 50); fill_color = (40, 20, 10); b_text = (255, 200, 180); role = "CHALLENGER"
         elif 4 <= rank_num <= 10: primary = (220, 20, 60); fill_color = (50, 10, 15); b_text = (255, 200, 200); role = "SENTINEL"
@@ -442,43 +454,177 @@ class Player(commands.Cog):
 
         with Image.new("RGBA", (width, height), bg_color) as card:
             draw = ImageDraw.Draw(card)
-            for x in range(0, width, 40): draw.line([(x, 0), (x, height)], fill=(25, 30, 35), width=1)
-            for y in range(0, height, 40): draw.line([(0, y), (width, y)], fill=(25, 30, 35), width=1)
-            blen, bw = 100, 6
+            
+            # --- DIGITAL GRID BACKGROUND ---
+            for x in range(0, width, 80): draw.line([(x, 0), (x, height)], fill=(30, 35, 40), width=2)
+            for y in range(0, height, 80): draw.line([(0, y), (width, y)], fill=(30, 35, 40), width=2)
+
+            # --- NEON GLOW EDGES ---
+            glow_color = primary + (50,)
+            for i in range(1, 4):
+                gw = 6 + (i * 4)
+                draw.rectangle([0, 0, width, height], outline=glow_color, width=gw)
+                # Avatar border glow centered between metadata and clearance box
+                draw.ellipse((100-i, 135-i, 500+i, 535+i), outline=glow_color, width=gw)
+
+            # --- DOSSIER STAMP ---
+            try:
+                # Reduced size to 220 to stay inside boundaries
+                stamp_font = ImageFont.truetype("font.ttf", 220)
+                stamp_txt = "CLASSIFIED"
+                stamp_img = Image.new("RGBA", (1300, 400), (0,0,0,0))
+                s_draw = ImageDraw.Draw(stamp_img)
+                # Brighter fill and much lighter outline for high contrast
+                s_draw.text((10, 10), stamp_txt, fill=(255, 40, 40, 45), font=stamp_font, stroke_width=2, stroke_fill=(255, 160, 160, 60))
+                # Slight rotation (10 deg) to ensure it fits vertically
+                rotated_stamp = stamp_img.rotate(10, expand=1, resample=Image.Resampling.BICUBIC)
+                # Centered paste
+                card.paste(rotated_stamp, (400, 180), rotated_stamp)
+            except: pass
+
+            # --- STAPLES (Top Left) ---
+            draw.line([(40, 30), (40, 110)], fill=(100, 105, 110), width=12)
+            draw.line([(70, 30), (70, 110)], fill=(100, 105, 110), width=12)
+
+            # --- METADATA (Top Left - Under Staples) ---
+            draw.text((110, 35), f"ID_REF: {user.id}", fill=(primary[0], primary[1], primary[2], 120), font=self.micro_font)
+            draw.text((110, 65), "STATUS: ACTIVE_OPERATIVE", fill=primary, font=self.micro_font)
+
+            # --- CORNER ACCENTS ---
+            blen, bw = 200, 12
             draw.line([(0, 0), (blen, 0)], fill=primary, width=bw); draw.line([(0, 0), (0, blen)], fill=primary, width=bw)
             draw.line([(width, height), (width-blen, height)], fill=primary, width=bw); draw.line([(width, height), (width, height-blen)], fill=primary, width=bw)
 
+            ax, ay, asz = 100, 135, 400
             if avatar_bytes:
                 try:
                     with BytesIO(avatar_bytes) as av_buf:
                         with Image.open(av_buf) as av_raw:
-                            av_raw.thumbnail((200, 200), Image.Resampling.LANCZOS) 
+                            av_raw.thumbnail((asz, asz), Image.Resampling.LANCZOS) 
                             with av_raw.convert("RGBA") as avatar:
                                 with Image.new("L", avatar.size, 0) as mask:
                                     ImageDraw.Draw(mask).ellipse((0, 0, avatar.size[0], avatar.size[1]), fill=255)
                                     with ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5)) as output:
-                                        output.putalpha(mask); card.paste(output, (50, 75), output)
-                except Exception:
-                    pass
+                                        output.putalpha(mask); card.paste(output, (ax, ay), output)
+                except Exception: pass
             
-            draw.ellipse((50, 75, 250, 275), outline=primary, width=4)
-            name_text = user.display_name.upper()
-            draw.text((300, 40), name_text, fill="white", font=self.title_font)
+            # Inner circle border
+            draw.ellipse((ax, ay, ax+asz, ay+asz), outline=primary, width=4)
+            # Name shifted up from 80 to 50
+            draw.text((600, 50), user.display_name.upper(), fill="white", font=self.title_font)
             
-            bx, by, bh, cut = 300, 120, 45, 12
-            bw_val = draw.textbbox((0, 0), role, font=self.badge_font)[2] + 70
+            # --- CLEARANCE ROLE BOX (Bottom Left) ---
+            cr_x, cr_y, cr_w, cr_h = 100, 580, 400, 70
+            cr_poly = [(cr_x+10, cr_y), (cr_x+cr_w-10, cr_y), (cr_x+cr_w, cr_y+10), (cr_x+cr_w, cr_y+cr_h-10), (cr_x+cr_w-10, cr_y+cr_h), (cr_x+10, cr_y+cr_h), (cr_x, cr_y+cr_h-10), (cr_x, cr_y+10)]
+            draw.polygon(cr_poly, fill=fill_color, outline=primary, width=3)
+            # Center the role text
+            cr_bbox = draw.textbbox((0,0), earned_role, font=self.small_font)
+            cr_tw = cr_bbox[2]-cr_bbox[0]
+            cr_th = cr_bbox[3]-cr_bbox[1]
+            draw.text((cr_x+(cr_w-cr_tw)//2, cr_y+(cr_h-cr_th)//2-4), earned_role, fill=primary, font=self.small_font)
+
+            # Badge shifted up from 240 to 180
+            bx, by, bh, cut = 600, 180, 90, 24
+            bw_val = draw.textbbox((0, 0), role, font=self.badge_font)[2] + 140
             poly = [(bx+cut, by), (bx+bw_val-cut, by), (bx+bw_val, by+cut), (bx+bw_val, by+bh-cut), (bx+bw_val-cut, by+bh), (bx+cut, by+bh), (bx, by+bh-cut), (bx, by+cut)]
-            draw.polygon(poly, fill=fill_color, outline=primary, width=2)
-            draw.text((bx+50, by+4), role, fill=b_text, font=self.badge_font)
+            draw.polygon(poly, fill=fill_color, outline=primary, width=4)
+            ds, dcx, dcy = 20, bx + 50, by + 44
+            draw.polygon([(dcx, dcy-ds), (dcx+ds, dcy), (dcx, dcy+ds), (dcx-ds, dcy)], fill=primary)
+            draw.text((bx+100, by+8), role, fill=b_text, font=self.badge_font)
+
+            # --- PROGRESS BAR ---
+            if next_goal:
+                bar_x, bar_y, bar_w, bar_h = 600, 650, 1100, 20
+                percent = min(1.0, points / next_goal)
+                draw.rectangle([bar_x, bar_y, bar_x+bar_w, bar_y+bar_h], fill=(30, 30, 35)) # Back
+                draw.rectangle([bar_x, bar_y, bar_x+int(bar_w*percent), bar_y+bar_h], fill=primary) # Fill
+                
+                # Labels
+                progress_text = f"CLEARANCE PROGRESS: {int(percent*100)}%"
+                goal_text = f"{next_goal} PTS GOAL"
+                
+                # Get width of goal text to align right
+                goal_w = draw.textbbox((0, 0), goal_text, font=self.small_font)[2]
+                
+                draw.text((bar_x, bar_y-45), progress_text, fill=primary, font=self.small_font)
+                draw.text((bar_x + bar_w - goal_w, bar_y-45), goal_text, fill=primary, font=self.small_font)
+            else:
+                # --- CENTERED MAX CLEARANCE TEXT ---
+                # Horizontally centered under the three boxes (Rank, Score, Flags)
+                # Box start: 600, Box end: 1360+340=1700. Center = 1150
+                m_text = "ARCHITECT OF THE SIMULATION" if points == 999999 else "MAX CLEARANCE LEVEL ATTAINED"
+                m_bbox = draw.textbbox((0, 0), m_text, font=self.label_font)
+                m_w = m_bbox[2] - m_bbox[0]
+                # Center horizontally (1150) and move up slightly from bottom
+                draw.text((1150 - (m_w//2), 580), m_text, fill=primary, font=self.label_font)
 
             def d_stat(x, y, lab, val):
-                sw, sh, c = 170, 110, 10
+                sw, sh, c = 340, 220, 20
                 p = [(x+c, y), (x+sw-c, y), (x+sw, y+c), (x+sw, y+sh-c), (x+sw-c, y+sh), (x+c, y+sh), (x, y+sh-c), (x, y+c)]
-                draw.polygon(p, fill=(20, 25, 30), outline=primary, width=2)
-                draw.text((x+15, y+10), lab, fill=primary, font=self.label_font)
-                draw.text((x+15, y+45), str(val), fill="white", font=self.value_font)
+                draw.polygon(p, fill=(20, 25, 30), outline=primary, width=4)
+                draw.text((x+30, y+20), lab, fill=primary, font=self.label_font)
+                
+                display_val = "∞" if points == 999999 and lab in ["RANK", "SCORE"] else str(val)
+                # --- BOT OVERRIDES ---
+                if points == 999999:
+                    if lab == "RANK": display_val = "[ROOT]"
+                    if lab == "FLAGS": display_val = "KERNEL"
+                
+                # Use smaller font for longer words to prevent overflow
+                v_font = self.value_font
+                v_y = y + 90
+                if len(display_val) > 5:
+                    v_font = self.badge_font # Size 60
+                    v_y = y + 115 # Lowered to align with infinity symbols
+                
+                draw.text((x+30, v_y), display_val, fill="white", font=v_font)
 
-            d_stat(300, 190, "RANK", rank); d_stat(490, 190, "SCORE", points); d_stat(680, 190, "FLAGS", solves)
+            # Stat boxes shifted up from 380 to 310
+            d_stat(600, 310, "RANK", rank); d_stat(980, 310, "SCORE", points); d_stat(1360, 310, "FLAGS", solves)
+            
+            # --- RECENT SPECIALIZATION HUD TAGS (Top Right) ---
+            if last_cats:
+                cat_info = {
+                    "WEB": ("WEB", (0, 255, 230)),
+                    "CRYPTO": ("CRY", (255, 230, 0)),
+                    "PWN": ("PWN", (255, 0, 80)),
+                    "REV": ("REV", (180, 0, 255)),
+                    "FORENSICS": ("FOR", (0, 255, 100)),
+                    "OSINT": ("OSI", (255, 150, 0)),
+                    "MISC": ("MSC", (180, 180, 180))
+                }
+                
+                # Box Specs (Miniature version of main boxes)
+                tw, th, tc = 160, 70, 10
+                curr_x = width - 100 - tw
+                # Moved down from 60 to 190 to align with the Role Badge (CHAMPION box)
+                top_y = 190 
+                
+                for cat in reversed(last_cats):
+                    label, clr = cat_info.get(cat, (cat[:3].upper(), (200, 200, 200)))
+                    
+                    # --- BOT TAG OVERRIDE (RGB) ---
+                    if points == 999999:
+                        if label == "SYS": clr = (255, 50, 50)   # Red
+                        elif label == "SQL": clr = (50, 255, 50) # Green
+                        elif label == "ENC": clr = (50, 100, 255)# Blue
+
+                    # Draw Small Tech Box
+                    tp = [(curr_x+tc, top_y), (curr_x+tw-tc, top_y), (curr_x+tw, top_y+tc), (curr_x+tw, top_y+th-tc), (curr_x+tw-tc, top_y+th), (curr_x+tc, top_y+th), (curr_x, top_y+th-tc), (curr_x, top_y+tc)]
+                    draw.polygon(tp, fill=(20, 25, 30), outline=clr, width=3)
+                    
+                    # Add Glow
+                    glow = clr + (40,)
+                    draw.polygon(tp, outline=glow, width=6)
+                    
+                    # Center the label text
+                    bbox = draw.textbbox((0, 0), label, font=self.small_font)
+                    t_w = bbox[2] - bbox[0]
+                    t_h = bbox[3] - bbox[1]
+                    draw.text((curr_x + (tw - t_w)//2, top_y + (th - t_h)//2 - 4), label, fill=clr, font=self.small_font)
+                    
+                    curr_x -= (tw + 20) # Space for next tag
+
             buf = BytesIO(); card.save(buf, format="PNG", optimize=True); buf.seek(0); return buf
 
     @app_commands.command(name="help", description="Protocol manual for Agents and Admins")
@@ -549,20 +695,41 @@ class Player(commands.Cog):
     async def profile(self, interaction: discord.Interaction, member: discord.Member = None):
         await interaction.response.defer()
         target = member or interaction.user
-        async with self.db.execute("SELECT s.points, t.last_ts FROM scores s LEFT JOIN (SELECT user_id, MAX(timestamp) as last_ts FROM solves GROUP BY user_id) t ON s.user_id = t.user_id WHERE s.user_id = ?", (target.id,)) as cursor:
-            row = await cursor.fetchone()
         
-        if row:
-            pts, lts = row
-            async with self.db.execute("SELECT COUNT(*) FROM scores s LEFT JOIN (SELECT user_id, MAX(timestamp) as ts FROM solves GROUP BY user_id) t ON s.user_id = t.user_id WHERE s.points > ? OR (s.points = ? AND IFNULL(t.ts, 9999999999) < IFNULL(?, 9999999999))", (pts, pts, lts)) as cursor:
-                res = await cursor.fetchone(); rank = f"#{res[0] + 1}"
-        else: pts = 0; rank = "N/A"
+        # --- EASTER EGG: BOT PROFILE ---
+        if target.id == self.bot.user.id:
+            pts, rank, count, next_goal, cats, earned_role = 999999, "OVERSEER", "KERNEL", None, ["SYS", "SQL", "ENC"], "SYSTEM OVERSEER"
+        else:
+            async with self.db.execute("SELECT s.points, t.last_ts FROM scores s LEFT JOIN (SELECT user_id, MAX(timestamp) as last_ts FROM solves GROUP BY user_id) t ON s.user_id = t.user_id WHERE s.user_id = ?", (target.id,)) as cursor:
+                row = await cursor.fetchone()
+            
+            if row:
+                pts, lts = row
+                async with self.db.execute("SELECT COUNT(*) FROM scores s LEFT JOIN (SELECT user_id, MAX(timestamp) as ts FROM solves GROUP BY user_id) t ON s.user_id = t.user_id WHERE s.points > ? OR (s.points = ? AND IFNULL(t.ts, 9999999999) < IFNULL(?, 9999999999))", (pts, pts, lts)) as cursor:
+                    res = await cursor.fetchone(); rank = f"#{res[0] + 1}"
+            else: pts = 0; rank = "N/A"
 
-        async with self.db.execute("SELECT COUNT(*) FROM solves WHERE user_id = ?", (target.id,)) as cursor:
-            count = (await cursor.fetchone())[0]
+            async with self.db.execute("SELECT COUNT(*) FROM solves WHERE user_id = ?", (target.id,)) as cursor:
+                count = (await cursor.fetchone())[0]
+
+            # --- FETCH PROGRESS & CATEGORIES ---
+            async with self.db.execute("SELECT points FROM role_rewards WHERE points > ? ORDER BY points ASC LIMIT 1", (pts,)) as cursor:
+                next_row = await cursor.fetchone()
+                next_goal = next_row[0] if next_row else None
+
+            async with self.db.execute("SELECT f.category FROM solves s JOIN flags f ON s.challenge_id = f.challenge_id WHERE s.user_id = ? ORDER BY s.timestamp DESC LIMIT 3", (target.id,)) as cursor:
+                cats = [r[0] for r in await cursor.fetchall()]
+
+            # --- FETCH EARNED ROLE ---
+            earned_role = "RECRUIT"
+            async with self.db.execute("SELECT role_id FROM role_rewards WHERE points <= ? ORDER BY points DESC LIMIT 1", (pts,)) as cursor:
+                r_row = await cursor.fetchone()
+                if r_row and interaction.guild:
+                    d_role = interaction.guild.get_role(r_row[0])
+                    if d_role: earned_role = d_role.name.upper()
 
         av_bytes = await target.avatar.read() if target.avatar else None
-        func = functools.partial(self.draw_profile_card, target, rank, pts, count, av_bytes)
+        func = functools.partial(self.draw_profile_card, target, rank, pts, count, av_bytes, next_goal, cats, earned_role)
         buf = await self.bot.loop.run_in_executor(None, func)
         await interaction.followup.send(file=discord.File(fp=buf, filename="profile.png"))
         buf.close()

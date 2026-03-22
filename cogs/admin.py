@@ -336,7 +336,22 @@ class Admin(commands.Cog):
 
     # --- 1. CREATE CHALLENGE ---
     @app_commands.command(name="create", description="Add a new challenge to the database")
-    @app_commands.describe(challenge_id="Unique ID (e.g. web1)", points="Base points", flag="The answer flag", category="e.g. Crypto", image_url="Optional image link")
+    @app_commands.describe(
+        challenge_id="Unique ID (e.g. web1)", 
+        points="Base points", 
+        flag="The answer flag", 
+        category="Choose from the official specialization list", 
+        image_url="Optional image link"
+    )
+    @app_commands.choices(category=[
+        app_commands.Choice(name="WEB (Cyber Globe)", value="WEB"),
+        app_commands.Choice(name="CRYPTO (Cipher Lock)", value="CRYPTO"),
+        app_commands.Choice(name="PWN (System Exploit)", value="PWN"),
+        app_commands.Choice(name="REV (Core Logic)", value="REV"),
+        app_commands.Choice(name="FORENSICS (Digital Lab)", value="FORENSICS"),
+        app_commands.Choice(name="OSINT (Intelligence)", value="OSINT"),
+        app_commands.Choice(name="MISC (General)", value="MISC")
+    ])
     @app_commands.default_permissions(administrator=True) 
     async def create(self, interaction: discord.Interaction, challenge_id: str, points: int, flag: str, category: str, image_url: str = None):
         await interaction.response.defer(ephemeral=True)
