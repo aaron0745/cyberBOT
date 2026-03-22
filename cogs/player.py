@@ -335,7 +335,12 @@ class LeaderboardView(discord.ui.View):
 
         desc = ""
         guild_id_env = os.getenv('GUILD_ID')
-        guild = self.bot.get_guild(int(guild_id_env)) if guild_id_env else None
+        guild = None
+        if guild_id_env:
+            try:
+                guild = self.bot.get_guild(int(guild_id_env))
+            except (ValueError, TypeError):
+                pass
 
         for i, (uid, db_username, points) in enumerate(page_players, 1):
             actual_rank = start_idx + i
@@ -579,13 +584,24 @@ class Player(commands.Cog):
             top = await cursor.fetchone()
 
         champ_id = await get_config_id(self.db, 'role_champion')
+        gen_id = await get_config_id(self.db, 'channel_general')
+        gen_chan = self.bot.get_channel(gen_id) if gen_id else None
+
         if top and champ_id:
             role = chan.guild.get_role(champ_id)
             if role:
                 new_c = chan.guild.get_member(top[0])
                 if new_c and role not in new_c.roles:
-                    for old in role.members: await old.remove_roles(role)
+                    old_champs = list(role.members)
+                    for old in old_champs: await old.remove_roles(role)
                     await new_c.add_roles(role)
+                    
+                    if gen_chan:
+                        if old_champs:
+                            old_mentions = ", ".join([m.mention for m in old_champs])
+                            await gen_chan.send(f"👑 **NEW KING!** {new_c.mention} has stolen the **Champion's Belt** from {old_mentions}! 🥊")
+                        else:
+                            await gen_chan.send(f"👑 **FIRST BLOOD!** {new_c.mention} has claimed the **Champion's Belt**!")
 
         view = LeaderboardView(self.bot, self.db, 0)
         embed, total = await view.create_embed()

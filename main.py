@@ -39,10 +39,18 @@ class CTFBot(commands.Bot):
         # 3. Sync Logic
         if GUILD_ID:
             try:
-                guild_obj = discord.Object(id=int(GUILD_ID))
+                g_id = int(GUILD_ID)
+                guild_obj = discord.Object(id=g_id)
                 self.tree.copy_global_to(guild=guild_obj)
                 synced = await self.tree.sync(guild=guild_obj)
                 print(f"⚡ cyberBOT: {len(synced)} commands active on Guild {GUILD_ID}")
+            except (ValueError, TypeError):
+                print(f"⚠️ Invalid GUILD_ID in .env: '{GUILD_ID}'. Defaulting to global sync.")
+                try:
+                    synced = await self.tree.sync()
+                    print(f"🌍 cyberBOT: {len(synced)} commands active globally.")
+                except Exception as e:
+                    print(f"⚠️ Global Sync Error: {e}")
             except Exception as e:
                 print(f"⚠️ Sync Error: {e}")
         else:
@@ -110,13 +118,23 @@ async def on_ready():
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
     if isinstance(error, discord.app_commands.MissingPermissions):
-        await interaction.response.send_message("⛔ Administrator permissions required.", ephemeral=True)
+        if interaction.response.is_done():
+            await interaction.followup.send("⛔ Administrator permissions required.", ephemeral=True)
+        else:
+            await interaction.response.send_message("⛔ Administrator permissions required.", ephemeral=True)
     elif isinstance(error, discord.app_commands.CommandOnCooldown):
-        await interaction.response.send_message(f"⏳ Cooldown! Try again in {error.retry_after:.1f}s", ephemeral=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"⏳ Cooldown! Try again in {error.retry_after:.1f}s", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"⏳ Cooldown! Try again in {error.retry_after:.1f}s", ephemeral=True)
     else:
         print(f"❌ Command Error: {error}")
-        if not interaction.response.is_done():
-            await interaction.response.send_message("⚠️ An internal system error occurred.", ephemeral=True)
+        if interaction.response.is_done():
+            try: await interaction.followup.send("⚠️ An internal system error occurred.", ephemeral=True)
+            except: pass
+        else:
+            try: await interaction.response.send_message("⚠️ An internal system error occurred.", ephemeral=True)
+            except: pass
 
 if __name__ == '__main__':
     if not TOKEN: print("❌ Error: DISCORD_TOKEN not found in .env")
