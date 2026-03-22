@@ -1,6 +1,6 @@
-# 🛡️ cyberBOT 2.0: The Ultimate CTF Engine
+# 🛡️ cyberBOT: The Ultimate CTF Engine
 
-cyberBOT 2.0 is a high-performance, asynchronous Discord bot designed for hosting Capture The Flag (CTF) competitions. It features a modern dossier-style profile system, automated role progression, and a robust administrative suite.
+cyberBOT is a high-performance, asynchronous Discord bot designed for hosting Capture The Flag (CTF) competitions. It features a modern dossier-style profile system, automated role progression, and a robust administrative suite.
 
 ---
 
@@ -14,7 +14,7 @@ cyberBOT 2.0 is a high-performance, asynchronous Discord bot designed for hostin
 ### **Installation**
 1.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/your-repo/cyberBOT.git
+    git clone https://github.com/aaron0745/cyberBOT.git
     cd cyberBOT
     ```
 2.  **Initialize Environment:**
@@ -88,4 +88,9 @@ Each Agent receives a high-resolution (**1800x700**) ID card via `/profile`.
 *   **Invalid GUILD_ID:** The bot will warn you in the console. Ensure it's a pure number.
 
 ---
-*Created for SG-CTF. Managed by the ARCHITECT.*
+
+## 📒6. More details
+*   **[CTF_BOT_MANUAL.pdf](./CTF_BOT_MANUAL.pdf):** Consult the Official Field Manual for an in-depth breakdown of the engine's backend architecture, economy systems, and deployment configurations.
+
+---
+*Created by Docx and Ash for SGCTF. Managed by the ARCHITECT.*
