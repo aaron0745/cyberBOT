@@ -10,11 +10,12 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID') 
+PREFIX = os.getenv('PREFIX') or "/"
 
 class CTFBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.all()
-        super().__init__(command_prefix=None, intents=intents, help_command=None)
+        super().__init__(command_prefix=PREFIX, intents=intents, help_command=None)
         self.db = None
 
     async def setup_hook(self):

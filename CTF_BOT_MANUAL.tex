@@ -1,0 +1,876 @@
+\documentclass[12pt,a4paper]{report}
+
+% --- PACKAGES ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in, headheight=15pt}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning, calc}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage[expansion=false]{microtype}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{caption}
+
+% --- COLORS ---
+\definecolor{cybergold}{RGB}{180, 120, 0}
+\definecolor{cybergreen}{RGB}{0, 150, 80}
+\definecolor{cybercyan}{RGB}{0, 70, 150}
+\definecolor{cyberred}{RGB}{220, 50, 50}
+\definecolor{cyberblue}{RGB}{0, 71, 171}
+\definecolor{cyberdark}{RGB}{10, 15, 20}
+\definecolor{cyberdarkgray}{RGB}{22, 25, 30}
+\definecolor{cyberpurple}{RGB}{160, 80, 220}
+\definecolor{codebg}{RGB}{245, 247, 250}
+
+% --- CHAPTER & SECTION STYLING ---
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{cybergold}}
+  {\filleft\Large\chaptername\ \thechapter}
+  {1ex}
+  {\titlerule[2pt]\vspace{1ex}\huge\filleft}
+
+\titleformat{\section}
+  {\normalfont\large\bfseries\color{cybercyan}}
+  {\thesection}{1em}{}[\color{cybercyan!40}\titlerule]
+
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries\color{cybergold!80!black}}
+  {\thesubsection}{1em}{}
+
+% --- HYPERLINKS ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=cybercyan,
+    urlcolor=cybergold,
+    pdftitle={cyberBOT 2.0 --- Official Field Manual},
+}
+
+% --- CODE LISTINGS ---
+\lstdefinestyle{bashstyle}{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    rulecolor=\color{cybergold!50},
+}
+\lstset{style=bashstyle}
+
+% --- HEADER / FOOTER ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textbf{\color{cybergold}cyberBOT 2.0}}
+\fancyhead[R]{\textit{\color{cybercyan}Official Field Manual}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{1.5pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{cybergold}\leaders\hrule height \headrulewidth\hfill}}
+
+% --- CUSTOM COMMANDS ---
+\newcommand{\cmd}[1]{\texttt{\color{cybercyan}\textbf{#1}}}
+\newcommand{\param}[1]{\texttt{\color{cyberdark}\textit{#1}}}
+
+\newcommand{\note}[1]{
+    \begin{tcolorbox}[colback=cyberblue!5, colframe=cyberblue,
+        title=\textbf{NOTE}, fonttitle=\sffamily\small]
+    #1
+    \end{tcolorbox}
+}
+\newcommand{\warning}[1]{
+    \begin{tcolorbox}[colback=cyberred!5, colframe=cyberred,
+        title=\textbf{CRITICAL WARNING}, fonttitle=\sffamily\small]
+    #1
+    \end{tcolorbox}
+}
+
+% centered figure helper
+\newcommand{\centerfig}[3][0.92]{%
+    \begin{center}
+        \includegraphics[width=#1\linewidth]{#2}
+        \captionof{figure}{#3}
+    \end{center}
+}
+
+% --- TIKZ STYLES ---
+\tikzset{
+    block/.style={rectangle, rounded corners=4pt, draw=cybercyan, fill=cybercyan!8,
+        thick, minimum width=3.2cm, minimum height=1.0cm,
+        align=center, font=\sffamily\footnotesize},
+    decision/.style={diamond, draw=cybergold!80!black, fill=cybergold!10, thick,
+        minimum width=3.0cm, minimum height=1.0cm,
+        align=center, font=\sffamily\footnotesize, aspect=2},
+    db/.style={cylinder, shape border rotate=90, aspect=0.3,
+        draw=cybergreen!70!black, fill=cybergreen!10, thick,
+        minimum width=2.2cm, minimum height=1.4cm,
+        align=center, font=\sffamily\footnotesize},
+    ok/.style={block, draw=cybergreen!70!black, fill=cybergreen!8},
+    danger/.style={block, draw=cyberred, fill=cyberred!7},
+    gold/.style={block, draw=cybergold!80!black, fill=cybergold!10},
+    arrow/.style={thick, ->, >=stealth, draw=gray!60},
+    arrowcyan/.style={thick, ->, >=stealth, draw=cybercyan},
+    arrowgreen/.style={thick, ->, >=stealth, draw=cybergreen!70!black},
+    arrowred/.style={thick, ->, >=stealth, draw=cyberred},
+    arrowgold/.style={thick, ->, >=stealth, draw=cybergold!80!black},
+}
+
+% diagram wrapper: centred, titled, spaced
+\newenvironment{diagram}[1]{%
+    \begin{center}
+    \textbf{#1}\\[0.5cm]
+    \begin{tikzpicture}
+}{%
+    \end{tikzpicture}
+    \end{center}
+    \vspace{0.3cm}
+}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% --- TITLE PAGE ---
+\begin{titlepage}
+    \pagecolor{cyberdark}
+    \centering
+    \vspace*{1.2cm}
+
+    \begin{tikzpicture}
+        \draw[cybergold!40, line width=0.8pt, dashed] (0,0) circle (3.8cm);
+        \foreach \a in {0,20,...,340}
+            \draw[cybergold!30, line width=0.7pt] (\a:3.8cm) -- (\a:4.1cm);
+        \draw[cybergold, line width=2pt] (0,0) circle (3.3cm);
+        \foreach \a in {45,135,225,315}
+            \draw[cybercyan, line width=1.5pt] (\a:3.3cm) -- (\a:3.7cm);
+        \node[circle, draw=cybercyan, line width=2.5pt,
+              minimum size=5.2cm, fill=cyberdarkgray] at (0,0) {
+            \color{white}\Huge\textbf{CB}
+        };
+    \end{tikzpicture}
+
+    \vspace{1cm}
+    {\color{white}\fontsize{34}{38}\selectfont\textbf{\textsf{cyberBOT}}}\\[0.4cm]
+    {\color{cybergold}\Large\textsf{O F F I C I A L \ \ F I E L D \ \ M A N U A L}}\\[0.3cm]
+    {\color{white!60}\normalsize\textsf{The Architect's Complete Operational Handbook}}
+
+    \vspace{1.2cm}
+    \begin{tcolorbox}[colback=cyberdarkgray, colframe=cybergold, width=12cm, center]
+        \centering\color{white}
+        \large\textbf{SGCTF NETWORK COMMAND}\\[0.2cm]
+        \small Dossier Profile System $\cdot$ Automated Scheduling $\cdot$ Anti-Deletion Watchdog\\
+        Recursive Refunds $\cdot$ Live Leaderboard $\cdot$ Easter Egg Protocol
+    \end{tcolorbox}
+
+    \vfill
+    {\color{cybergold}\large \today}\\[0.3cm]
+    {\color{white!40}\small Deployment-Ready Distribution $\cdot$ v2.0}
+    \vspace{1cm}
+\end{titlepage}
+\nopagecolor
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\chapter{System Introduction}
+% ============================================================
+
+\textbf{CyberBOT} is a fully asynchronous Capture The Flag engine for Discord, rebuilt with a
+dossier-style intelligence profile system, automated role progression, a competitive hint economy,
+and a complete administrative suite. It is designed to run an entire CTF season with zero manual
+intervention once configured.
+
+\section{What is New in CyberBOT}
+
+\begin{itemize}
+    \item \textbf{Dossier Profile Cards:} Completely redesigned 1800$\times$700 Agent ID cards with dark
+          charcoal folder aesthetics, neon HUD borders, CLASSIFIED watermark, and dynamic clearance
+          progression bars.
+    \item \textbf{Specialization Tags:} HUD boxes showing the categories of the last 3 challenges solved.
+    \item \textbf{Clearance Progression:} A progress bar showing advancement toward the next rank role.
+    \item \textbf{Max Clearance State:} When the highest rank role is achieved the progress bar is replaced
+          with a MAX CLEARANCE LEVEL ATTAINED banner.
+    \item \textbf{The Architect Easter Egg:} Running \cmd{/profile} on the bot itself reveals a unique
+          \textbf{[ROOT]} profile with SYSTEM CORE badge, infinity score, and the ARCHITECT OF THE
+          SIMULATION signature.
+    \item \textbf{Dropdown Categories:} Challenge categories are enforced via slash command dropdowns,
+          ensuring clean specialization tag rendering.
+    \item \textbf{Belt Steal Announcements:} When the \#1 ranking changes, the bot broadcasts a live
+          alert to the General channel.
+\end{itemize}
+
+\newpage
+\section{System Architecture}
+
+\begin{diagram}{Diagram 1.1 --- Top-Level Architecture}
+    [node distance=2cm]
+    \node (discord) [gold]                                        {Discord API};
+    \node (main)    [block, below=of discord]                     {CTFBot Core};
+    \node (admin)   [block, below left=1.5cm and 1.8cm of main]   {Admin Cog};
+    \node (player)  [block, below right=1.5cm and 1.8cm of main]  {Player Cog};
+    \node (db)      [db,    below=3cm of main]                    {bot.db \\ SQLite WAL};
+    \node (fs)      [block, below=1.5cm of admin,
+                     draw=cyberpurple, fill=cyberpurple!8]         {File Storage \\ /uploads};
+
+    \draw [arrowgold]        (discord) -- node[right,  font=\tiny]{Events} (main);
+    \draw [arrowgold]        (main)    -- node[left,   font=\tiny]{REST}   (discord);
+    \draw [arrowcyan]        (main)    -- (admin);
+    \draw [arrowcyan]        (main)    -- (player);
+    \draw [arrowcyan, dashed](admin)   -| node[below left, font=\tiny]{Async WAL} (db);
+    \draw [arrowcyan, dashed](player)  |- (db);
+    \draw [arrow]            (admin)   -| (fs);
+\end{diagram}
+
+% ============================================================
+\chapter{Hardware \& Deployment}
+% ============================================================
+
+\section{System Requirements}
+
+\begin{itemize}
+    \item \textbf{Python 3.10+} --- Required for modern \texttt{asyncio} features.
+    \item \textbf{Discord Bot Token} --- From the Discord Developer Portal.
+    \item \textbf{Gateway Intents} --- Server Members, Presence, and Message Content must be enabled
+          in the Developer Portal.
+    \item \textbf{Bot Permissions} --- Send Messages, Embed Links, Attach Files, Manage Roles,
+          Read Message History.
+    \item \textbf{font.ttf} --- Must be present in the root directory for profile card rendering.
+\end{itemize}
+
+\section{Installation}
+
+\begin{lstlisting}[language=bash, caption=Standard Deployment (Linux / Kali)]
+cd cyberBOT
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+nano .env          # Fill in DISCORD_TOKEN and GUILD_ID
+python3 main.py
+\end{lstlisting}
+
+\begin{lstlisting}[language=bash, caption=Standard Deployment (Windows)]
+cd cyberBOT
+python3 -m venv venv
+source \.venv/Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env
+nano .env          # Fill in DISCORD_TOKEN and GUILD_ID
+python3 main.py
+\end{lstlisting}
+
+\newpage
+\begin{lstlisting}[language=bash, caption=Termux (Android) Deployment]
+pkg update && pkg upgrade
+pkg install python python-pip
+cd cyberBOT
+pip install -r requirements.txt
+cp .env.example .env
+nano .env
+python main.py
+\end{lstlisting}
+
+\section{Environment Configuration}
+
+\begin{tcolorbox}[colback=codebg, colframe=cybergold!60]
+\begin{verbatim}
+DISCORD_TOKEN=your_bot_token_here
+GUILD_ID=your_server_id_here
+\end{verbatim}
+\end{tcolorbox}
+
+\note{
+    \textbf{GUILD\_ID} enables Instant Guild Sync, making all slash commands available immediately.
+    Without it, Discord's global propagation can take up to 60 minutes. The bot gracefully falls back
+    to global sync if the value is invalid, logging a console warning rather than crashing.
+}
+
+\section{File Structure}
+
+\begin{tcolorbox}[colback=codebg, colframe=cybercyan!60]
+\begin{verbatim}
+cyberBOT/
++-- cogs/
+|   +-- admin.py        # Mission control + background watchdogs
+|   +-- player.py       # Agent interface + profile rendering
++-- uploads/            # Scheduled challenge files (auto-created)
++-- main.py             # Engine core + DB initialization
++-- bot.db              # SQLite database (auto-created, gitignored)
++-- font.ttf            # Font for profile card generation
++-- requirements.txt
++-- .env                # Secrets (gitignored)
+\end{verbatim}
+\end{tcolorbox}
+
+\newpage
+\section{Troubleshooting}
+
+\begin{center}
+\begin{tabular}{p{4.2cm} p{8.8cm}}
+\toprule
+\textbf{Issue} & \textbf{Resolution} \\
+\midrule
+429 Rate Limit on startup  & Normal after repeated restarts. Wait 15 seconds. \\
+Missing profile card       & Ensure \texttt{font.ttf} exists in the root directory. \\
+Commands not appearing     & Verify \texttt{GUILD\_ID} is a plain integer with no quotes. \\
+DB write error             & Check that the process has write permission to the project directory. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\chapter{Database Schema}
+% ============================================================
+
+cyberBOT uses a single \texttt{bot.db} SQLite file with WAL mode for concurrent read/write access.
+All tables are created automatically on first launch. A migration system upgrades existing databases
+without data loss.
+
+\begin{longtable}{>{\ttfamily}p{3.4cm} p{3.2cm} p{6cm}}
+\toprule
+\textbf{Table} & \textbf{Primary Key} & \textbf{Purpose} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Table} & \textbf{Primary Key} & \textbf{Purpose} \\
+\midrule
+\endhead
+flags           & challenge\_id TEXT        & All challenge data: flag, points, category, post metadata, scheduling, file path, image URL. \\[0.3cm]
+scores          & user\_id INTEGER          & Running point total and display name per player. \\[0.3cm]
+solves          & (user\_id, challenge\_id) & Solve records with REAL timestamps for millisecond tie-breaking. \\[0.3cm]
+hints           & id AUTOINCREMENT          & Purchasable hints attached to challenges with a point cost. \\[0.3cm]
+unlocked\_hints & (user\_id, hint\_id)      & Which players have unlocked which hints. \\[0.3cm]
+role\_rewards   & role\_id INTEGER          & Discord role IDs mapped to point thresholds. \\[0.3cm]
+banlist         & user\_id INTEGER          & Disqualified players blocked from submissions. \\[0.3cm]
+config          & key TEXT                  & Server settings: channel IDs, leaderboard message ID, champion role. \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\chapter{Administrative Setup}
+% ============================================================
+
+All administrator commands require Discord \textbf{Administrator} permission and respond ephemerally
+(visible only to the invoker).
+
+\section{Initial Configuration}
+
+\begin{enumerate}
+    \item Run \cmd{/setup} to link channels: Leaderboard, Challenge Logs, Wrong Submissions, and General.
+    \item Run \cmd{/set\_rank\_role} to define point milestones (e.g. 500~pts = Senior Agent,
+          2000~pts = Elite Operative).
+    \item Create challenges via \cmd{/create} using the official dropdown category list.
+    \item Post or schedule them using \cmd{/post}.
+\end{enumerate}
+
+\section{Rank Role System}
+
+\begin{diagram}{Diagram 4.1 --- Dynamic Promotion Flow}
+    [node distance=1.8cm]
+    \node (solve)  [ok]                                   {Flag Captured};
+    \node (add)    [block,    right=2.2cm of solve]        {Add Points to \\ scores};
+    \node (scan)   [decision, below=2.2cm of add]          {Score >= \\ threshold?};
+    \node (grant)  [ok,       left=1.8cm of scan]         {Grant Role \\ to Member};
+    \node (noop)   [block,    right=1.8cm of scan]         {No Action};
+    \node (lb)     [block,    below=1.8cm of grant]        {Refresh \\ Leaderboard};
+
+    \draw [arrowgreen] (solve) -- (add);
+    \draw [arrowcyan]  (add)   -- (scan);
+    \draw [arrowgreen] (scan)  -- node[above, font=\tiny]{Yes} (grant);
+    \draw [arrow]      (scan)  -- node[above, font=\tiny]{No}  (noop);
+    \draw [arrowcyan]  (grant) -- (lb);
+\end{diagram}
+
+\section{Championship Belt Logic}
+
+cyberBOT monitors standings every 2 minutes. When the \#1 player changes:
+
+\begin{enumerate}
+    \item The Champion role is stripped from the previous holder.
+    \item The Champion role is granted to the new leader.
+    \item An automated Belt Stolen alert is broadcast to the configured General channel.
+\end{enumerate}
+
+% ============================================================
+\chapter{Mission Management}
+% ============================================================
+
+\section{Challenge Lifecycle}
+
+\begin{diagram}{Diagram 5.1 --- Mission Lifecycle}
+    [node distance=2cm]
+    \node (create) [block]                                {\cmd{/create} Draft};
+    \node (post)   [ok,     right=2.5cm of create]        {\cmd{/post} Live};
+    \node (expire) [danger, right=2.5cm of post]          {Expired \\ (end\_time)};
+    \node (edit)   [block,  below left=2.4cm of post]          {\cmd{/edit} Modified};
+    \node (delete) [danger, below=1.8cm of expire]        {\cmd{/delete} Purged};
+
+    \draw [arrowcyan] (create) -- (post);
+    \draw [arrowred]  (post)   -- (expire);
+    \draw [arrowcyan] (post)   -- (edit);
+    \draw [arrowcyan] (edit)   -- (post);
+    \draw [arrowred]  (expire) -- (delete);
+    \draw [arrowred]  (post)   |- (delete);
+\end{diagram}
+
+\section{Creating a Challenge}
+
+\cmd{/create} registers a new challenge in draft mode. Not visible to players until posted.
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}l l p{7.2cm}}
+\toprule
+\textbf{Parameter} & \textbf{Required} & \textbf{Description} \\
+\midrule
+challenge\_id & Yes & Unique identifier, e.g. \texttt{web1}, \texttt{crypto3}. \\
+points        & Yes & Base point value awarded on solve. \\
+flag          & Yes & Correct answer string (case-sensitive). \\
+category      & Yes & Selected from official dropdown (WEB, CRYPTO, PWN, etc.). \\
+image\_url    & No  & URL to image embedded in the challenge card. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+\section{Posting a Challenge}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}l l p{6.5cm}}
+\toprule
+\textbf{Parameter} & \textbf{Required} & \textbf{Description} \\
+\midrule
+challenge\_id    & Yes & ID of an existing draft challenge. \\
+start\_time      & Yes & \texttt{DD/MM HH:MM}. Past time = post immediately. \\
+end\_time        & Yes & Expiry time, \texttt{DD/MM HH:MM}. \\
+channel          & No  & Target channel (defaults to current). \\
+description      & No  & Objective text on the mission card. \\
+connection\_info & No  & Server/URL block on the mission card. \\
+file             & No  & Attachment to accompany the post. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Scheduled Posting Engine}
+
+\begin{diagram}{Diagram 5.2 --- Scheduler Logic}
+    [node distance=2.5cm]
+    \node (poll)   [decision]                              {Poll every \\ 60 s};
+    \node (query)  [db,       right=3.6cm of poll]         {bot.db \\ Pending rows};
+    \node (check)  [decision, below=2.2cm of query]        {now >= \\ start\_time?};
+    \node (post)   [ok,       below=2.5cm of check]         {Post Mission \\ + File};
+    \node (update) [block,    left=1.6cm of post]         {Write msg\_id \\ + posted\_at};
+    \node (wait)   [block,    right=1.8cm of check]        {Wait next \\ cycle};
+
+    \draw [arrowcyan]  (poll)   -- (query);
+    \draw [arrowcyan]  (query)  -- (check);
+    \draw [arrowgreen] (check)  -- node[right, font=\tiny]{Yes} (post);
+    \draw [arrow]      (check)  -- node[above, font=\tiny]{No}  (wait);
+    \draw [arrowcyan]  (post)   -- (update);
+    \draw [arrowcyan]  (update) -| ++(-1.7,0) -| (poll);
+\end{diagram}
+
+\newpage
+\section{Deleting a Challenge}
+
+\cmd{/delete} purges a challenge and handles all downstream consequences:
+
+\begin{diagram}{Diagram 5.3 --- Recursive Delete \& Refund Flow}
+    [node distance=1.6cm]
+    \node (cmd)     [danger]                                    {\cmd{/delete}};
+    \node (solvers) [decision, right=2.5cm of cmd]              {Any \\ solvers?};
+    \node (deduct)  [danger,   right=2cm of solvers]            {Deduct Points \\ + Bonuses};
+    \node (hints)   [decision, below=2cm of solvers]            {Any hint \\ buyers?};
+    \node (refund)  [ok,       left=2cm of hints]              {Refund Hint \\ Costs};
+    \node (purge)   [danger,   below=1.8cm of hints]            {Purge DB \\ + File};
+    \node (lb)      [block,    right=2cm of purge]              {Refresh \\ Leaderboard};
+
+    \draw [arrowred]   (cmd)     -- (solvers);
+    \draw [arrowred]   (solvers) -- node[above, font=\tiny]{Yes} (deduct);
+    \draw [arrowcyan]  (solvers) -- node[right, font=\tiny]{No}  (hints);
+    \draw [arrowcyan]  (deduct)  |- (hints);
+    \draw [arrowgreen] (hints)   -- node[above, font=\tiny]{Yes} (refund);
+    \draw [arrowcyan]  (hints)   -- node[right, font=\tiny]{No}  (purge);
+    \draw [arrowcyan]  (refund)  |- (purge);
+    \draw [arrowcyan]  (purge)   -- (lb);
+\end{diagram}
+
+% ============================================================
+\chapter{Anti-Deletion Watchdog}
+% ============================================================
+
+A background task polls every 60 seconds. For every active posted challenge, it verifies that both
+the mission embed and its file attachment message still exist. If either is missing, full recovery
+is triggered automatically.
+
+\begin{diagram}{Diagram 6.1 --- Watchdog Heartbeat Cycle}
+    [node distance=1.7cm]
+    \node (poll)    [decision]                                {Poll active \\ missions (60s)};
+    \node (fetch)   [block,   right=2.7cm of poll]            {Fetch msg\_id \\ + file\_msg\_id};
+    \node (missing) [decision, below=2cm of fetch]            {Either \\ missing?};
+    \node (ok)      [ok,      right=1.8cm of missing]         {No action \\ (all good)};
+    \node (clean)   [danger,  below=1.8cm of missing]         {Delete \\ fragments};
+    \node (repost)  [ok,      left=1.5cm of clean]           {Re-post embed \\ + file};
+    \node (sync)    [block,   above=1.6cm of repost]          {Update msg\_id \\ in DB};
+
+    \draw [arrowcyan]  (poll)    -- (fetch);
+    \draw [arrowcyan]  (fetch)   -- (missing);
+    \draw [arrowgreen] (missing) -- node[above, font=\tiny]{No}  (ok);
+    \draw [arrowred]   (missing) -- node[right, font=\tiny]{Yes} (clean);
+    \draw [arrowcyan]  (clean)   -- (repost);
+    \draw [arrowcyan]  (repost)  -- (sync);
+    \draw [arrowcyan]  (sync)    -| ++(-1.6,0) -| (poll);
+\end{diagram}
+
+The watchdog also handles expiry: when \texttt{end\_time} is reached the embed is updated to show
+\textbf{[Expired]}, the Submit button is disabled, and the local file is deleted from storage.
+
+% ============================================================
+\chapter{Scoring \& Economics}
+% ============================================================
+
+\section{Base Points \& First Blood Bonuses}
+
+\begin{center}
+\begin{tabular}{c l c r}
+\toprule
+\textbf{Position} & \textbf{Title} & \textbf{Bonus} & \textbf{Example (100 pt base)} \\
+\midrule
+1st  & First Blood & +50 pts & \textbf{150 pts} \\
+2nd  & Silver      & +25 pts & \textbf{125 pts} \\
+3rd  & Bronze      & +10 pts & \textbf{110 pts} \\
+4th+ & ---         & +0 pts  & \textbf{100 pts} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Millisecond Tie-Breaking}
+
+Timestamps are stored as \texttt{REAL} (Python \texttt{float}), giving sub-millisecond precision.
+When two players share the same point total, the one who reached that total \textit{first} ranks
+higher. The leaderboard SQL sorts by \texttt{points DESC, last\_solve\_timestamp ASC}.
+
+\section{Hint Economy}
+
+\begin{itemize}
+    \item Hints are purchased with points via a dropdown selector on the mission card.
+    \item Once purchased, a hint is permanently unlocked for that player at no further cost.
+    \item \cmd{/remove\_hint} triggers automatic refunds to all buyers.
+    \item \cmd{/delete} refunds all hint costs before purging the challenge.
+\end{itemize}
+
+\section{Collusion Detection}
+
+If the same flag is solved by two different players within 60 seconds of each other, a collusion
+alert is logged to the Challenge Logs channel with both usernames and the exact time delta. The
+solve is still recorded; the alert is for admin review.
+
+\newpage
+\section{Flag Submission Pipeline}
+
+\begin{diagram}{Diagram 7.1 --- Submission Pipeline}
+    [node distance=1.5cm]
+    \node (btn)   [block]                                    {Submit Flag \\ clicked};
+    \node (ban)   [decision, right=2.2cm of btn]             {Banned?};
+    \node (deny)  [danger,   above=1.4cm of ban]             {ACCESS \\ DENIED};
+    \node (exp)   [decision, right=2.2cm of ban]             {Expired?};
+    \node (expm)  [danger,   above=1.4cm of exp]             {Time \\ Expired};
+    \node (dup)   [decision, below=2cm of exp]               {Already \\ solved?};
+    \node (dupm)  [danger,   left=1.8cm of dup]             {Duplicate};
+    \node (chk)   [decision, below=2cm of dup]               {Flag \\ correct?};
+    \node (wrong) [danger,   left=1.8cm of chk]             {Wrong Flag \\ (logged)};
+    \node (award) [ok,       below=1.8cm of chk]             {Award Points \\ + Bonuses};
+    \node (roles) [block,    left=2.2cm of award]           {Check Role \\ Thresholds};
+    \node (lb)    [block,    below=1.5cm of award]           {Update Card \\ + Leaderboard};
+
+    \draw [arrowcyan]  (btn)   -- (ban);
+    \draw [arrowred]   (ban)   -- node[left,  font=\tiny]{Yes} (deny);
+    \draw [arrowcyan]  (ban)   -- node[above, font=\tiny]{No}  (exp);
+    \draw [arrowred]   (exp)   -- node[left,  font=\tiny]{Yes} (expm);
+    \draw [arrowcyan]  (exp)   -- node[right, font=\tiny]{No}  (dup);
+    \draw [arrowred]   (dup)   -- node[above, font=\tiny]{Yes} (dupm);
+    \draw [arrowcyan]  (dup)   -- node[right, font=\tiny]{No}  (chk);
+    \draw [arrowred]   (chk)   -- node[above, font=\tiny]{No}  (wrong);
+    \draw [arrowgreen] (chk)   -- node[right, font=\tiny]{Yes} (award);
+    \draw [arrowcyan]  (award) -- (roles);
+    \draw [arrowcyan]  (award) -- (lb);
+\end{diagram}
+
+% ============================================================
+\chapter{The Dossier Profile System}
+% ============================================================
+
+Each Agent profile is a procedurally rendered \textbf{1800x700} digital dossier card generated via
+the Python Imaging Library (PIL). The theme, border colour, badge text, and bottom bar all adapt
+dynamically based on rank and progress.
+
+\section{Profile Card Anatomy}
+
+Every card shares a dark charcoal grid background with a diagonal \textbf{CLASSIFIED} watermark.
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{3.5cm} p{9.5cm}}
+\toprule
+Zone & Content \\
+\midrule
+Top-left strip  & ID\_REF (Discord user ID) and STATUS: ACTIVE\_OPERATIVE \\
+Left panel      & Circular avatar with rank-coloured neon ring border \\
+Centre-top      & Agent name (uppercase) and clearance badge with diamond icon \\
+Top-right HUD   & Specialization tags: last 3 solve categories, each uniquely coloured \\
+Stat boxes      & Three clipped-corner boxes: RANK, SCORE, FLAGS \\
+Bottom bar      & Rank title box (left) and clearance progress bar or max level banner \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+\section{Profile States}
+
+\subsection{Initial State --- RECRUIT (0 Points)}
+
+A new agent with no solves. The card renders in neutral grey. No specialization tags are shown.
+The progress bar reads 0\% toward the first milestone.
+
+\centerfig{initial_profile.png}{Initial profile state --- RECRUIT with no points or flags.}
+
+\subsection{Mid-Progression State}
+
+An agent accumulating points. The progress bar fills proportionally. Specialization tags appear
+as categories are solved. Border and badge colour reflect current clearance level.
+
+\centerfig{mid_profile.png}{Mid-progression --- CHAMPION at 30\% toward the next milestone.}
+
+\newpage
+\centerfig{profile.png}{Advanced progression --- CHAMPION at 88\% with 3 specialization tags.}
+
+\subsection{Max Clearance State}
+
+When the highest configured rank role is achieved, the progress bar is replaced with the
+\textbf{MAX CLEARANCE LEVEL ATTAINED} banner.
+
+\centerfig{max_level.png}{Max clearance state --- all rank milestones achieved.}
+
+\section{Rank Themes}
+
+\begin{center}
+\begin{tabular}{l l l p{4.5cm}}
+\toprule
+\textbf{Condition} & \textbf{Badge} & \textbf{Accent} & \textbf{Notes} \\
+\midrule
+\#1 on leaderboard   & CHAMPION   & Gold      & Full gold borders, ring, progress bar \\
+\#2                  & VANGUARD   & Platinum  & Silver-white accents \\
+\#3                  & CHALLENGER & Bronze    & Bronze accents \\
+\#4--\#10            & SENTINEL   & Crimson   & Red-alert theme \\
+Other ranked players & OPERATIVE  & Teal      & Standard operative \\
+0 points             & RECRUIT    & Gray      & Neutral, no progress colour \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+\section{Specialization Tags}
+
+\begin{center}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Category} & \textbf{Tag} & \textbf{Colour} \\
+\midrule
+Web Exploitation  & WEB & Cyan    \\
+Cryptography      & CRY & Yellow  \\
+Pwn / Binary Exp. & PWN & Red     \\
+Reverse Eng.      & REV & Purple  \\
+Forensics         & FOR & Green   \\
+OSINT             & OSI & Orange  \\
+Miscellaneous     & MIS & White   \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{The Architect Easter Egg}
+
+Running \cmd{/profile @cyberBOT} reveals the hidden Overseer profile. Instead of player stats
+the card renders a special \textbf{SYSTEM CORE} configuration with a deep navy and cyber-emerald
+theme.
+
+\centerfig{cyberbot.png}{The Architect Easter Egg --- triggered by running \cmd{/profile} on the bot.}
+
+\begin{center}
+\begin{tabular}{l l}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+Name badge     & SYSTEM CORE \\
+Rank           & [ROOT] \\
+Score          & $\infty$ \\
+Flags          & KERNEL \\
+Bottom text    & ARCHITECT OF THE SIMULATION \\
+Role tag       & SYSTEM OVERSEER \\
+Spec tags      & SYS, SQL, ENC \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\chapter{Player Commands}
+% ============================================================
+
+\section{/profile}
+
+Renders and sends the Agent dossier card as a PNG. Optionally accepts a \param{member} mention
+to view another player's card.
+
+\section{/leaderboard}
+
+Interactive paginated embed (10 players per page) with Previous/Next navigation. Sorted by points
+descending with timestamp tie-breaking. A \textbf{live leaderboard message} is also maintained
+in the configured channel, auto-refreshing every 2 minutes and on every score change.
+
+\section{/help}
+
+Complete command reference. Administrators see the full suite including mission control and
+maintenance commands. Players see agent-facing commands only. Ephemeral.
+
+\section{/about}
+
+Displays comprehensive system specifications and development credits for the Lead Architect
+and System Engineer. Features a live Satellite Uplink diagnostic showing real-time
+network latency and encryption protocols. This command is delivered ephemerally to
+maintain operational security.
+
+% ============================================================
+\chapter{Administration Reference}
+% ============================================================
+
+\section{Mission Control}
+
+\begin{description}[leftmargin=0pt, itemsep=0.4em]
+    \item[\cmd{/create} \param{challenge\_id points flag category} [\param{image\_url}]]
+    Register a challenge in draft mode.
+
+    \item[\cmd{/post} \param{challenge\_id start\_time end\_time} [\param{channel description connection\_info file}]]
+    Deploy or schedule. Time format: \texttt{DD/MM HH:MM}.
+
+    \item[\cmd{/edit} \param{challenge\_id} [\param{new\_id points flag category image\_url description connection\_info start\_time end\_time}]]
+    Modify any attribute. Live embed syncs immediately. Renaming cascades to all records.
+
+    \item[\cmd{/delete} \param{challenge\_id}]
+    Purge with recursive point deduction and hint refund.
+
+    \item[\cmd{/list}]
+    Show all challenges with Posted/Draft status.
+
+    \item[\cmd{/show} \param{challenge\_id}]
+    Reveal hidden flag text and metadata.
+
+    \item[\cmd{/add\_hint} \param{challenge\_id text cost}]
+    Attach a purchasable hint. Hint button appears on live embed automatically.
+
+    \item[\cmd{/remove\_hint} \param{hint\_id}]
+    Remove hint with automatic refunds to all buyers.
+\end{description}
+
+\section{Player Management}
+
+\begin{description}[leftmargin=0pt, itemsep=0.4em]
+    \item[\cmd{/revoke} \param{member challenge\_id}]
+    Remove a solve. Deducts base points plus any first-blood bonus earned at that solve position.
+
+    \item[\cmd{/ban\_user} \param{member}]
+    Block all flag submissions and hint purchases.
+
+    \item[\cmd{/unban\_user} \param{member}]
+    Restore full access.
+\end{description}
+
+\section{System \& Maintenance}
+
+\begin{description}[leftmargin=0pt, itemsep=0.4em]
+    \item[\cmd{/setup} [\param{leaderboard\_channel challenge\_logs wrong\_submissions general\_channel champion\_role}]]
+    Link channels and set champion role. Non-destructive and additive.
+
+    \item[\cmd{/set\_rank\_role} \param{role points}]
+    Define an auto-promotion milestone.
+
+    \item[\cmd{/remove\_rank\_role} \param{role}]
+    Remove a milestone from the promotion engine.
+
+    \item[\cmd{/list\_rank\_roles}]
+    Display all configured thresholds.
+
+    \item[\cmd{/export}]
+    Upload \texttt{bot.db} as an ephemeral Discord attachment for backup.
+
+    \item[\cmd{/import} \param{file}]
+    Live-swap the active database. Zero downtime.
+
+    \item[\cmd{/reset\_config}]
+    Wipe channel and role config only. Player data preserved.
+\end{description}
+
+\warning{
+    \cmd{/wipe\_all} deletes \textbf{everything}: players, scores, challenges, hints, banlist,
+    config, and all files in \texttt{/uploads/}. Irreversible. Always run \cmd{/export} first.
+}
+
+% ============================================================
+\chapter{Database Backup \& Recovery}
+% ============================================================
+
+\section{Export}
+
+Run \cmd{/export} at any time. The bot sends \texttt{bot.db} as a private Discord file attachment
+visible only to the invoking administrator.
+
+\section{Live Import}
+
+\begin{diagram}{Diagram 10.1 --- Live Database Swap}
+    [node distance=1.7cm]
+    \node (cmd)    [gold]                                   {\cmd{/import file}};
+    \node (close)  [block,  right=2.2cm of cmd]             {Close DB \\ connection};
+    \node (write)  [block,  right=2.2cm of close]           {Overwrite \\ bot.db};
+    \node (reopen) [ok,     below=1.8cm of write]           {Re-open connection \\ WAL mode};
+    \node (sync)   [block,  below=1.8cm of close]           {Sync cog \\ self.db refs};
+    \node (lb)     [block,  below=1.8cm of cmd]             {Refresh \\ Leaderboard};
+
+    \draw [arrowgold]  (cmd)    -- (close);
+    \draw [arrowcyan]  (close)  -- (write);
+    \draw [arrowcyan]  (write)  -- (reopen);
+    \draw [arrowcyan]  (reopen) -- (sync);
+    \draw [arrowcyan]  (sync)   -- (lb);
+\end{diagram}
+
+\warning{
+    Import overwrites the current database without automatic backup. Always run \cmd{/export}
+    before importing.
+}
+
+\section{Recommended Backup Schedule}
+
+\begin{itemize}
+    \item \textbf{Before each weekly event} --- Pre-event snapshot.
+    \item \textbf{After each event ends} --- Final standings preserved.
+    \item \textbf{Before \cmd{/wipe\_all}} --- End-of-season archive.
+\end{itemize}
+
+\vspace{2cm}
+\begin{center}
+\begin{tcolorbox}[colback=cyberdark, coltext=white, colframe=cybergold,
+                  width=13cm, center]
+    \centering\color{cybergold}
+    \large\textbf{--- END OF FIELD MANUAL ---}\\[0.3cm]
+    \color{cybercyan}\small cyberBOT 2.0 $\cdot$ SG-CTF Network Command $\cdot$ \today\\[0.2cm]
+    \color{white!50}\footnotesize ARCHITECT OF THE SIMULATION
+\end{tcolorbox}
+\end{center}
+
+\end{document}

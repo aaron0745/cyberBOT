@@ -1,96 +1,75 @@
-# 🛡️ cyberBOT: The Ultimate CTF Engine
+# 🛡️ cyberBOT: The Definitive CTF Engine
 
-cyberBOT is a high-performance, asynchronous Discord bot designed for hosting Capture The Flag (CTF) competitions. It features a modern dossier-style profile system, automated role progression, and a robust administrative suite.
-
----
-
-## 🚀 1. Rapid Deployment Guide
-
-### **System Requirements**
-*   Python 3.10 or higher
-*   A Discord Bot Token (via [Discord Developer Portal](https://discord.com/developers/applications))
-*   `GUILD_ID` of your server (Enable Developer Mode in Discord to find this)
-
-### **Installation**
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/aaron0745/cyberBOT.git
-    cd cyberBOT
-    ```
-2.  **Initialize Environment:**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    ```
-3.  **Configure Environment:**
-    Rename `.env.example` to `.env` and fill in:
-    *   `DISCORD_TOKEN`: Your bot token.
-    *   `GUILD_ID`: The server ID for instant command syncing.
-4.  **Launch:**
-    ```bash
-    python3 main.py
-    ```
+cyberBOT is a professional-grade, asynchronous Discord platform engineered for high-stakes Capture The Flag (CTF) competitions. It transforms a standard Discord server into an immersive, automated tactical environment where Agents compete for digital supremacy.
 
 ---
 
-## 📂 2. Project Architecture
+## 👁️ 1. Project Vision
+The core philosophy of cyberBOT is **Immersion through Automation**. Unlike standard CTF bots, cyberBOT focuses on a "Game-Master" aesthetic, providing players with high-resolution visual identities and administrators with a self-healing mission infrastructure.
 
-### **Core Components**
-*   `main.py`: The engine core. Handles event loops, database initialization (`aiosqlite`), and global error handling.
-*   `cogs/admin.py`: Mission control. Handles challenge creation, scheduling, hint management, and backups.
-*   `cogs/player.py`: The Agent interface. Handles profile generation, leaderboard logic, and flag submissions.
-*   `bot.db`: SQLite database using WAL (Write-Ahead Logging) for high concurrency.
-
-### **Database Schema**
-*   `flags`: Stores challenge data (ID, Points, Flag, Category, Deadlines).
-*   `solves`: Records every capture with millisecond timestamps for tie-breaking.
-*   `scores`: Persistent player leaderboard data.
-*   `role_rewards`: Mapping of point milestones to Discord roles.
-*   `config`: Stores server-specific settings (Channel IDs, Leaderboard Message IDs).
+### **Core Pillars:**
+*   **Visual Identity:** Dynamic, high-resolution Agent Dossiers that evolve with player progress.
+*   **Operational Stability:** An asynchronous architecture built to handle high-concurrency submissions without lag.
+*   **Autonomous Management:** Self-healing mission posts and automated role promotion engines.
 
 ---
 
-## 🕵️ 3. Premium Features
+## 🚀 2. System Capabilities
 
-### **Dossier Profile Cards**
-Each Agent receives a high-resolution (**1800x700**) ID card via `/profile`.
-*   **Aesthetic:** Dark Charcoal folder theme with a rotated "CLASSIFIED" stamp.
-*   **Neon HUD:** Glowing borders and nodes that change color based on the Agent's Rank.
-*   **Specialization Tags:** Top-right HUD boxes showing recent solve categories (`WEB`, `CRY`, `PWN`, etc.).
-*   **Clearance Progression:** A progress bar at the bottom showing the journey to the next milestone.
-*   **Easter Egg:** Inspecting the bot (`/profile @bot`) reveals the **[ROOT]** profile with `KERNEL` stats and an `ARCHITECT` signature.
+### **The Agent Experience**
+*   **Dossier System:** Every player is assigned a unique, 1800x700 ID card (`/profile`) featuring their rank, specialty tags, and clearance progress.
+*   **Real-time Intel:** Interactive, paginated leaderboards (`/leaderboard`) with millisecond-accurate tie-breaking.
+*   **Specialization Tracking:** The system monitors recent solves to assign specialized HUD tags (WEB, CRYPTO, PWN, etc.) to Agent profiles.
 
-### **Mission Control 2.0**
-*   **Automated Posting:** Schedule missions to appear at a specific date/time.
-*   **Recursive Refunds:** Deleting a mission or hint automatically restores spent points to all players.
-*   **Anti-Deletion:** If a mission post is accidentally deleted, the bot will automatically re-post it.
+### **Mission Control (Admin)**
+*   **Dynamic Scheduling:** Missions can be posted instantly or scheduled for future deployment with automated start/end times.
+*   **Asset Management:** Support for file attachments and external image URLs for every challenge.
+*   **Recursive Economy:** A smart refund system that restores points to players automatically if a hint or mission is deleted.
+*   **Anti-Deletion Protocol:** The bot monitors its own mission posts; if a challenge message is deleted, the bot immediately re-posts it to maintain competition integrity.
 
 ---
 
-## 🛠️ 4. Administrative Protocols
-
-### **Setup Flow**
-1.  Run `/setup` to link your **Leaderboard**, **Logs**, and **General** channels.
-2.  Use `/set_rank_role` to define milestones (e.g., 500 pts = "Senior Agent").
-3.  Create missions via `/create`. You must use the official dropdown categories.
-4.  Post or schedule them using `/post`.
-
-### **Backup & Recovery**
-*   **`/export`**: Download the entire database as a `.db` file.
-*   **`/import`**: Restore from a backup file with zero downtime.
+## ⚙️ 3. Technical Foundation
+*   **Language:** Python 3.10+
+*   **Library:** Discord.py (Slash Command Optimized)
+*   **Database:** SQLite 3 with `aiosqlite` integration.
+*   **Concurrency:** Write-Ahead Logging (WAL) enabled for high-speed I/O.
+*   **Imaging:** PIL (Pillow) engine for dynamic 1800x700 canvas rendering.
 
 ---
 
-## ⚠️ 5. Troubleshooting
-*   **429 Rate Limit:** Normal during startup if you restart many times. Wait 15 seconds.
-*   **Missing Fonts:** Ensure `font.ttf` is in the root directory for profile rendering.
-*   **Invalid GUILD_ID:** The bot will warn you in the console. Ensure it's a pure number.
+## 🛠️ 4. Operational Commands
+
+### **Agent Protocols**
+*   `/profile` - Generate high-res Agent ID card.
+*   `/leaderboard` - View global standings.
+*   `/about` - Display system specs and credits.
+*   `/help` - Access the field manual.
+
+### **Mission Protocols**
+*   `/create` - Register a new mission in the database.
+*   `/post` - Deploy a mission to a channel (Manual or Scheduled).
+*   `/edit` - Modify mission parameters (Flag, Points, Category).
+*   `/delete` - Remove a mission and process recursive refunds.
+*   `/list` - View the status of all missions (Posted/Draft).
+*   `/show` - Reveal the capture flag and internal mission data.
+
+### **Network Protocols**
+*   `/setup` - Configure system channels and the Champion role.
+*   `/set_rank_role` - Define auto-promotion point milestones.
+*   `/revoke` - Manually remove a solve and deduct points.
+*   `/add_hint` / `/remove_hint` - Manage purchasable clues.
+*   `/ban_user` / `/unban_user` - Manage network access.
+*   `/export` / `/import` - Database backup and zero-downtime recovery.
+*   `/wipe_all` - Complete data purge (Nuclear Option).
 
 ---
 
-## 📒6. More details
-*   **[CTF_BOT_MANUAL.pdf](./CTF_BOT_MANUAL.pdf):** Consult the Official Field Manual for an in-depth breakdown of the engine's backend architecture, economy systems, and deployment configurations.
+## 📥 5. Installation & Setup
+1.  **Environment:** Initialize a Python virtual environment and install dependencies via `requirements.txt`.
+2.  **Configuration:** Create a `.env` file with `DISCORD_TOKEN`, `GUILD_ID`, and `PREFIX=/`.
+3.  **Assets:** Ensure `font.ttf` is present in the root directory for profile generation.
+4.  **Execution:** Run `python main.py` to initialize the `bot.db` and start the engine.
 
 ---
-*Created by Docx and Ash for SGCTF. Managed by the ARCHITECT.*
+*Developed for SG-CTF. Managed by the ARCHITECT OF THE SIMULATION.*

@@ -506,9 +506,26 @@ class Player(commands.Cog):
                                     ImageDraw.Draw(mask).ellipse((0, 0, avatar.size[0], avatar.size[1]), fill=255)
                                     with ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5)) as output:
                                         output.putalpha(mask); card.paste(output, (ax, ay), output)
-                except Exception: pass
+                except Exception: avatar_bytes = None # Trigger fallback if image processing fails
             
-            # Inner circle border
+            if not avatar_bytes:
+                # --- INITIALS FALLBACK ---
+                initial = user.display_name[0].upper() if user.display_name else "?"
+                # Draw solid background for the initial
+                draw.ellipse((ax, ay, ax+asz, ay+asz), fill=fill_color, outline=primary, width=4)
+                # Use a massive font for the initial
+                try:
+                    initial_font = ImageFont.truetype("font.ttf", 250)
+                except:
+                    initial_font = self.title_font
+                
+                # Center the initial text
+                i_bbox = draw.textbbox((0, 0), initial, font=initial_font)
+                i_w = i_bbox[2] - i_bbox[0]
+                i_h = i_bbox[3] - i_bbox[1]
+                draw.text((ax + (asz - i_w)//2, ay + (asz - i_h)//2 - 30), initial, fill=primary, font=initial_font)
+            
+            # Inner circle border (Always drawn for sharpness)
             draw.ellipse((ax, ay, ax+asz, ay+asz), outline=primary, width=4)
             # Name shifted up from 80 to 50
             draw.text((600, 50), user.display_name.upper(), fill="white", font=self.title_font)
@@ -637,6 +654,8 @@ class Player(commands.Cog):
             "↳ Generates your high-res Agent ID card. Displays current Rank, total Score, and solve count. Mention another member to inspect their stats.\n\n"
             "🏆 **`/leaderboard`**\n"
             "↳ Opens the global standing interactive menu with ◀ ▶ buttons. Standings are sorted by points and millisecond-accurate solve times.\n\n"
+            "🛡️ **`/about`**\n"
+            "↳ Displays technical system specifications, real-time latency, and development credits.\n\n"
             "📚 **`/help`**\n"
             "↳ Accesses this complete operational manual for all system protocols.\n\n"
             "🚩 **Flag Submission (Button)**\n"
@@ -690,6 +709,65 @@ class Player(commands.Cog):
             embed.set_footer(text="cyberBOT is monitoring the network. Capture the flag, Agent.")
 
         await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="about", description="View system specifications and development credits")
+    async def about(self, interaction: discord.Interaction):
+        # Hardcoded mentions using absolute User IDs
+        m1 = "<@758276303446343700>" # doc_x_
+        m2 = "<@769098666732421141>" # ashil4451
+
+        embed = discord.Embed(
+            title="🛡️ cyberBOT: SYSTEM SPECIFICATIONS",
+            description=(
+                "**cyberBOT** is a next-generation CTF engine built for high-performance "
+                "digital competitions. It handles mission deployment, real-time leaderboards, "
+                "and Agent identification with military-grade precision."
+            ),
+            color=discord.Color.from_rgb(0, 255, 120)
+        )
+
+        embed.add_field(
+            name="🛠️ DEVELOPMENT",
+            value=(
+                f"**Built & Designed by:** {m1}\n"
+                f"**Technical Assistance:** {m2}"
+            ),
+            inline=False
+        )
+
+        embed.add_field(
+            name="⚙️ CORE ENGINE",
+            value=(
+                "```ini\n"
+                f"[ SYS ] cyberBOT\n"
+                f"[ KER ] Python 3.13\n"
+                f"[ DB  ] aiosqlite\n"
+                f"[ API ] discord.py\n"
+                "```"
+            ),
+            inline=True
+        )
+
+        embed.add_field(
+            name="🛰️ SATELLITE UPLINK",
+            value=(
+                "```ini\n"
+                f"[ STAT ] ONLINE\n"
+                f"[ PING ] {round(self.bot.latency * 1000)}ms\n"
+                f"[ ENC  ] AES-256\n"
+                f"[ LINK ] ESTABLISHED\n"
+                "```"
+            ),
+            inline=True
+        )
+
+        embed.set_footer(text="Managed by the ARCHITECT OF THE SIMULATION")
+        
+        # Use the bot's avatar as the thumbnail
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="profile", description="View agent ID card")
     async def profile(self, interaction: discord.Interaction, member: discord.Member = None):
