@@ -7,10 +7,42 @@ import time
 import functools
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from io import BytesIO
+from main import BONUSES
 
 # --- CONFIGURATION & CONSTANTS ---
-BONUSES = {0: 50, 1: 25, 2: 10}
-COOLDOWNS = {} 
+# Submission cooldown tracker: user_id -> timestamp of last attempt
+# Pruned on each access to prevent unbounded growth
+_COOLDOWN_TTL = 5  # seconds; prune entries older than this
+COOLDOWNS: dict[int, float] = {}
+
+def _check_and_set_cooldown(user_id: int, window: float = 2.0) -> bool:
+    """Returns True if the user is on cooldown. Always prunes stale entries."""
+    now = time.time()
+    # Prune all entries older than TTL so dict never grows unbounded
+    stale = [uid for uid, ts in COOLDOWNS.items() if now - ts > _COOLDOWN_TTL]
+    for uid in stale:
+        del COOLDOWNS[uid]
+    if user_id in COOLDOWNS and now - COOLDOWNS[user_id] < window:
+        return True
+    COOLDOWNS[user_id] = now
+    return False
+
+# Per-command cooldown store for slash commands (user_id -> last use timestamp)
+_CMD_COOLDOWNS: dict[str, dict[int, float]] = {}
+_CMD_WINDOW = 30  # seconds between user invocations of the same command
+
+def _is_on_cmd_cooldown(cmd: str, user_id: int) -> float | None:
+    """Returns remaining seconds if on cooldown, else None. Auto-prunes."""
+    now = time.time()
+    bucket = _CMD_COOLDOWNS.setdefault(cmd, {})
+    stale = [uid for uid, ts in bucket.items() if now - ts > _CMD_WINDOW]
+    for uid in stale:
+        del bucket[uid]
+    last = bucket.get(user_id)
+    if last and now - last < _CMD_WINDOW:
+        return round(_CMD_WINDOW - (now - last), 1)
+    bucket[user_id] = now
+    return None
 
 async def get_config_id(db, key):
     """Helper to fetch channel/role IDs from the persistent database."""
@@ -191,11 +223,14 @@ class SubmissionModal(discord.ui.Modal, title="cyberBOT: Flag Submission"):
                 await interaction.response.send_message("⏳ **Time limit exceeded.** Challenge closed.", ephemeral=True)
                 return
 
-        # 1. Cooldown Check
-        if user_id in COOLDOWNS and current_time - COOLDOWNS[user_id] < 2:
-            await interaction.response.send_message("⏳ Too fast! System cooling down.", ephemeral=True)
-            return
-        COOLDOWNS[user_id] = current_time
+        # 1. Cooldown Check (skipped for admins)
+        if not interaction.user.guild_permissions.administrator:
+            if _check_and_set_cooldown(user_id, window=2.0):
+                await interaction.response.send_message("⏳ Too fast! System cooling down.", ephemeral=True)
+                return
+        else:
+            # Still set the timestamp for non-cooldown users to track last submission
+            COOLDOWNS[user_id] = current_time
 
         # 2. Duplicate Solve Check
         async with self.db.execute("SELECT * FROM solves WHERE user_id = ? AND challenge_id = ?", (user_id, self.challenge_id)) as cursor:
@@ -647,6 +682,13 @@ class Player(commands.Cog):
     @app_commands.command(name="help", description="Protocol manual for Agents and Admins")
     async def help(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
+
+        # Cooldown: non-admins only
+        if not interaction.user.guild_permissions.administrator:
+            remaining = _is_on_cmd_cooldown("help", interaction.user.id)
+            if remaining:
+                await interaction.followup.send(f"⏳ Command on cooldown. Try again in **{remaining}s**.", ephemeral=True)
+                return
         
         # --- AGENT COMMANDS ---
         agent_manual = (
@@ -771,6 +813,12 @@ class Player(commands.Cog):
 
     @app_commands.command(name="profile", description="View agent ID card")
     async def profile(self, interaction: discord.Interaction, member: discord.Member = None):
+        # Cooldown: non-admins only (profile card is CPU-intensive)
+        if not interaction.user.guild_permissions.administrator:
+            remaining = _is_on_cmd_cooldown("profile", interaction.user.id)
+            if remaining:
+                await interaction.response.send_message(f"⏳ Command on cooldown. Try again in **{remaining}s**.", ephemeral=True)
+                return
         await interaction.response.defer()
         target = member or interaction.user
         
@@ -814,6 +862,12 @@ class Player(commands.Cog):
 
     @app_commands.command(name="leaderboard", description="View global standings")
     async def leaderboard(self, interaction: discord.Interaction):
+        # Cooldown: non-admins only
+        if not interaction.user.guild_permissions.administrator:
+            remaining = _is_on_cmd_cooldown("leaderboard", interaction.user.id)
+            if remaining:
+                await interaction.response.send_message(f"⏳ Command on cooldown. Try again in **{remaining}s**.", ephemeral=True)
+                return
         view = LeaderboardView(self.bot, self.db, 0)
         embed, total = await view.create_embed()
         view.update_buttons(total)

@@ -12,9 +12,15 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID') 
 PREFIX = os.getenv('PREFIX') or "/"
 
+# First Blood bonus points (shared with cogs via import)
+# 0 = 1st solver (+50), 1 = 2nd (+25), 2 = 3rd (+10)
+BONUSES = {0: 50, 1: 25, 2: 10}
+
 class CTFBot(commands.Bot):
     def __init__(self):
-        intents = discord.Intents.all()
+        intents = discord.Intents.default()
+        intents.members = True          # Needed for member lookups, role assignment, display names
+        intents.message_content = True  # Needed for prefix command fallback
         super().__init__(command_prefix=PREFIX, intents=intents, help_command=None)
         self.db = None
 

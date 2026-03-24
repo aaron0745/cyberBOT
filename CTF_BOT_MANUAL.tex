@@ -56,7 +56,7 @@
     colorlinks=true,
     linkcolor=cybercyan,
     urlcolor=cybergold,
-    pdftitle={cyberBOT 2.0 --- Official Field Manual},
+    pdftitle={CyberBOT --- Official Field Manual},
 }
 
 % --- CODE LISTINGS ---
@@ -76,7 +76,7 @@
 % --- HEADER / FOOTER ---
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\textbf{\color{cybergold}cyberBOT 2.0}}
+\fancyhead[L]{\textbf{\color{cybergold}CyberBOT}}
 \fancyhead[R]{\textit{\color{cybercyan}Official Field Manual}}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{1.5pt}
@@ -164,7 +164,7 @@
     \end{tikzpicture}
 
     \vspace{1cm}
-    {\color{white}\fontsize{34}{38}\selectfont\textbf{\textsf{cyberBOT}}}\\[0.4cm]
+    {\color{white}\fontsize{34}{38}\selectfont\textbf{\textsf{CyberBOT}}}\\[0.4cm]
     {\color{cybergold}\Large\textsf{O F F I C I A L \ \ F I E L D \ \ M A N U A L}}\\[0.3cm]
     {\color{white!60}\normalsize\textsf{The Architect's Complete Operational Handbook}}
 
@@ -178,7 +178,7 @@
 
     \vfill
     {\color{cybergold}\large \today}\\[0.3cm]
-    {\color{white!40}\small Deployment-Ready Distribution $\cdot$ v2.0}
+    {\color{white!40}\small Deployment-Ready Distribution}
     \vspace{1cm}
 \end{titlepage}
 \nopagecolor
@@ -245,8 +245,9 @@ intervention once configured.
 \begin{itemize}
     \item \textbf{Python 3.10+} --- Required for modern \texttt{asyncio} features.
     \item \textbf{Discord Bot Token} --- From the Discord Developer Portal.
-    \item \textbf{Gateway Intents} --- Server Members, Presence, and Message Content must be enabled
-          in the Developer Portal.
+    \item \textbf{Gateway Intents} --- Only \textbf{Server Members Intent} must be enabled
+          in the Developer Portal. Message Content Intent is enabled as a prefix fallback.
+          Presence Intent is not required.
     \item \textbf{Bot Permissions} --- Send Messages, Embed Links, Attach Files, Manage Roles,
           Read Message History.
     \item \textbf{font.ttf} --- Must be present in the root directory for profile card rendering.
@@ -309,10 +310,10 @@ cyberBOT/
 |   +-- admin.py        # Mission control + background watchdogs
 |   +-- player.py       # Agent interface + profile rendering
 +-- uploads/            # Scheduled challenge files (auto-created)
-+-- main.py             # Engine core + DB initialization
++-- main.py             # Engine core, DB init, shared BONUSES constant
 +-- bot.db              # SQLite database (auto-created, gitignored)
 +-- font.ttf            # Font for profile card generation
-+-- requirements.txt
++-- requirements.txt    # discord.py, python-dotenv, pillow, aiosqlite
 +-- .env                # Secrets (gitignored)
 \end{verbatim}
 \end{tcolorbox}
@@ -337,7 +338,7 @@ DB write error             & Check that the process has write permission to the 
 \chapter{Database Schema}
 % ============================================================
 
-cyberBOT uses a single \texttt{bot.db} SQLite file with WAL mode for concurrent read/write access.
+CyberBOT uses a single \texttt{bot.db} SQLite file with WAL mode for concurrent read/write access.
 All tables are created automatically on first launch. A migration system upgrades existing databases
 without data loss.
 
@@ -398,7 +399,7 @@ All administrator commands require Discord \textbf{Administrator} permission and
 
 \section{Championship Belt Logic}
 
-cyberBOT monitors standings every 2 minutes. When the \#1 player changes:
+CyberBOT monitors standings every 2 minutes. When the \#1 player changes:
 
 \begin{enumerate}
     \item The Champion role is stripped from the previous holder.
@@ -702,7 +703,7 @@ Miscellaneous     & MIS & White   \\
 
 \section{The Architect Easter Egg}
 
-Running \cmd{/profile @cyberBOT} reveals the hidden Overseer profile. Instead of player stats
+Running \cmd{/profile @CyberBOT} reveals the hidden Overseer profile. Instead of player stats
 the card renders a special \textbf{SYSTEM CORE} configuration with a deep navy and cyber-emerald
 theme.
 
@@ -733,11 +734,18 @@ Spec tags      & SYS, SQL, ENC \\
 Renders and sends the Agent dossier card as a PNG. Optionally accepts a \param{member} mention
 to view another player's card.
 
+\note{\cmd{/profile} is subject to a \textbf{30-second cooldown} for regular players to prevent
+thread-pool flooding from repeated PIL renders. Administrators are exempt.}
+
 \section{/leaderboard}
 
 Interactive paginated embed (10 players per page) with Previous/Next navigation. Sorted by points
 descending with timestamp tie-breaking. A \textbf{live leaderboard message} is also maintained
 in the configured channel, auto-refreshing every 2 minutes and on every score change.
+
+\note{\cmd{/leaderboard} and \cmd{/help} each have a \textbf{30-second per-user cooldown}.
+Administrators bypass all cooldowns. Cooldown state is stored in memory and auto-pruned
+so there is no persistent overhead.}
 
 \section{/help}
 
@@ -822,8 +830,10 @@ maintain operational security.
 \end{description}
 
 \warning{
-    \cmd{/wipe\_all} deletes \textbf{everything}: players, scores, challenges, hints, banlist,
-    config, and all files in \texttt{/uploads/}. Irreversible. Always run \cmd{/export} first.
+    \cmd{/wipe\_all} opens a \textbf{popup dialog} (Discord Modal) immediately. The administrator
+    must type \texttt{CONFIRM WIPE} exactly in the text field and click Submit to proceed.
+    Closing the dialog or typing any other phrase aborts the operation with no data loss.
+    This is an irreversible action --- always run \cmd{/export} first.
 }
 
 % ============================================================
@@ -872,7 +882,7 @@ visible only to the invoking administrator.
                   width=13cm, center]
     \centering\color{cybergold}
     \large\textbf{--- END OF FIELD MANUAL ---}\\[0.3cm]
-    \color{cybercyan}\small cyberBOT 2.0 $\cdot$ SG-CTF Network Command $\cdot$ \today\\[0.2cm]
+    \color{cybercyan}\small CyberBOT $\cdot$ SGCTF Network Command $\cdot$ \today\\[0.2cm]
     \color{white!50}\footnotesize ARCHITECT OF THE SIMULATION
 \end{tcolorbox}
 \end{center}

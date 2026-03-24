@@ -7,10 +7,7 @@ import os
 import time
 import shutil
 from datetime import datetime
-
-
-# Must match the bonuses in player.py
-BONUSES = {0: 50, 1: 25, 2: 10}
+from main import BONUSES
 
 class Admin(commands.Cog):
     def __init__(self, bot):
@@ -308,31 +305,60 @@ class Admin(commands.Cog):
     @app_commands.command(name="wipe_all", description="⚠️ NUCLEAR: Delete EVERYTHING (Players, Flags, Solves)")
     @app_commands.default_permissions(administrator=True)
     async def wipe_all(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        
-        # Delete data from all tables
-        await self.db.execute("DELETE FROM flags")
-        await self.db.execute("DELETE FROM scores")
-        await self.db.execute("DELETE FROM solves")
-        await self.db.execute("DELETE FROM banlist")
-        await self.db.execute("DELETE FROM hints")
-        await self.db.execute("DELETE FROM unlocked_hints")
-        await self.db.execute("DELETE FROM config")
-        await self.db.execute("DELETE FROM role_rewards")
-        await self.db.commit()
-        
-        # Storage Cleanup: Wipe the uploads folder
-        if os.path.exists('uploads'):
-            try:
-                shutil.rmtree('uploads')
-                os.makedirs('uploads')
-            except Exception as e:
-                print(f"❌ Storage Wipe Error: {e}")
-        
-        cog = self.bot.get_cog('Player')
-        if cog: await cog.update_leaderboard()
+        """Opens a popup dialog immediately. Admin must type CONFIRM WIPE to execute."""
 
-        await interaction.followup.send("☢️ **NUCLEAR WIPEOUT COMPLETE.**\nThe database and local storage are empty.")
+        db_ref = self.db
+        bot_ref = self.bot
+
+        class WipeModal(discord.ui.Modal, title="☢️  NUCLEAR WIPEOUT — CONFIRM"):
+            confirm_input = discord.ui.TextInput(
+                label="Type  CONFIRM WIPE  to erase all data",
+                placeholder="CONFIRM WIPE",
+                min_length=12,
+                max_length=12,
+                required=True,
+            )
+
+            async def on_submit(modal_self, modal_interaction: discord.Interaction):
+                if modal_self.confirm_input.value.strip().upper() != "CONFIRM WIPE":
+                    await modal_interaction.response.send_message(
+                        "❌ **Wrong phrase.** Wipe aborted — nothing was deleted.",
+                        ephemeral=True
+                    )
+                    return
+
+                await modal_interaction.response.defer(ephemeral=True)
+
+                await db_ref.execute("DELETE FROM flags")
+                await db_ref.execute("DELETE FROM scores")
+                await db_ref.execute("DELETE FROM solves")
+                await db_ref.execute("DELETE FROM banlist")
+                await db_ref.execute("DELETE FROM hints")
+                await db_ref.execute("DELETE FROM unlocked_hints")
+                await db_ref.execute("DELETE FROM config")
+                await db_ref.execute("DELETE FROM role_rewards")
+                await db_ref.commit()
+
+                if os.path.exists('uploads'):
+                    try:
+                        shutil.rmtree('uploads')
+                        os.makedirs('uploads')
+                    except Exception as e:
+                        print(f"❌ Storage Wipe Error: {e}")
+
+                cog = bot_ref.get_cog('Player')
+                if cog:
+                    try:
+                        await cog.update_leaderboard()
+                    except Exception:
+                        pass
+
+                await modal_interaction.followup.send(
+                    "☢️ **NUCLEAR WIPEOUT COMPLETE.**\nThe database and local storage are empty.",
+                    ephemeral=True
+                )
+
+        await interaction.response.send_modal(WipeModal())
 
     # --- 1. CREATE CHALLENGE ---
     @app_commands.command(name="create", description="Add a new challenge to the database")
