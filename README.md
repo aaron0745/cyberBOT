@@ -30,11 +30,11 @@ The core philosophy of cyberBOT is **Immersion through Automation**. Unlike stan
 ---
 
 ## ⚙️ 3. Technical Foundation
-*   **Language:** Python 3.10+
-*   **Library:** Discord.py (Slash Command Optimized)
-*   **Database:** SQLite 3 with `aiosqlite` integration.
-*   **Concurrency:** Write-Ahead Logging (WAL) enabled for high-speed I/O.
-*   **Imaging:** PIL (Pillow) engine for dynamic 1800x700 canvas rendering.
+*   **Language:** JavaScript (Node.js v20+)
+*   **Library:** Discord.js v14 (Slash Command Optimized)
+*   **Database:** MongoDB via Mongoose
+*   **Architecture:** Express.js keep-alive integration for 24/7 cloud hosting on platforms like Render.
+*   **Imaging:** Python script (`draw_profile.py`) utilizing PIL for dynamic 1800x700 canvas rendering.
 
 ---
 
@@ -60,16 +60,16 @@ The core philosophy of cyberBOT is **Immersion through Automation**. Unlike stan
 *   `/revoke` - Manually remove a solve and deduct points.
 *   `/add_hint` / `/remove_hint` - Manage purchasable clues.
 *   `/ban_user` / `/unban_user` - Manage network access.
-*   `/export` / `/import` - Database backup and zero-downtime recovery.
+*   `/export` / `/import` - Database JSON backup and zero-downtime recovery.
 *   `/wipe_all` - Complete data purge (Nuclear Option).
 
 ---
 
 ## 📥 5. Installation & Setup
-1.  **Environment:** Initialize a Python virtual environment and install dependencies via `requirements.txt`.
-2.  **Configuration:** Create a `.env` file with `DISCORD_TOKEN`, `GUILD_ID`, and `PREFIX=/`.
-3.  **Assets:** Ensure `font.ttf` is present in the root directory for profile generation.
-4.  **Execution:** Run `python main.py` to initialize the `bot.db` and start the engine.
+1.  **Environment:** Run `npm install` to install Node.js dependencies.
+2.  **Configuration:** Rename `.env.example` to `.env` and fill in your `DISCORD_TOKEN`, `CLIENT_ID`, `GUILD_ID`, and `MONGODB_URI`.
+3.  **Slash Commands:** Run `node deploy-commands.js` to register all slash commands globally.
+4.  **Execution:** Run `npm start` to ignite the bot and activate the keep-alive server.
 
 ---
 *Developed for SG-CTF. Managed by the ARCHITECT OF THE SIMULATION.*
