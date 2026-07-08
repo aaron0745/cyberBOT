@@ -1,5 +1,5 @@
 .env
+node_modules/
+*.zip
 __pycache__/
-venv
-bot.db
 .vscode

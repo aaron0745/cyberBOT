@@ -1,0 +1,27 @@
+{
+  "name": "cyberbot",
+  "version": "1.0.0",
+  "description": "CyberBOT is a professional-grade, asynchronous Discord platform engineered for high-stakes Capture The Flag (CTF) competitions. It transforms a standard Discord server into an immersive, automated tactical environment where Agents compete for digital supremacy.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node --max-old-space-size=256 index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aaron0745/CyberBOT.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aaron0745/CyberBOT/issues"
+  },
+  "homepage": "https://github.com/aaron0745/CyberBOT#readme",
+  "dependencies": {
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.7.4"
+  }
+}
