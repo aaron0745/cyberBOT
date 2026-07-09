@@ -42,6 +42,15 @@ module.exports = {
             const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
             const adminLogChannelId = adminLogConfig ? adminLogConfig.value : null;
 
+            if (adminLogChannelId) {
+                try {
+                    const logChan = await interaction.client.channels.fetch(adminLogChannelId);
+                    if (logChan) {
+                        await logChan.send(`☢️ Admin <@${interaction.user.id}> ran \`/wipe_all\`. All system data, challenges, players, and configurations have been purged.`);
+                    }
+                } catch(e){}
+            }
+
             await Models.Flag.deleteMany({});
             await Models.Score.deleteMany({});
             await Models.Solve.deleteMany({});
@@ -54,13 +63,6 @@ module.exports = {
             await updateLeaderboard(interaction.client);
             
             await submitted.editReply({ content: '☢️ **NUCLEAR WIPEOUT COMPLETE.**\nThe database is empty.' });
-            
-            if (adminLogChannelId) {
-                try {
-                    const logChan = await interaction.client.channels.fetch(adminLogChannelId);
-                    if (logChan) logChan.send(`☢️ Admin <@${interaction.user.id}> ran \`/wipe_all\`.`);
-                } catch(e){}
-            }
             
         } catch (error) {
             // User probably closed modal or it timed out
