@@ -88,12 +88,16 @@ module.exports = {
                     return interaction.editReply({ content: 'No hints available for this challenge.' });
                 }
 
+                // Check if user is hidden
+                const hiddenConfig = await Models.Config.findOne({ key: 'hidden_users' });
+                const isHidden = hiddenConfig && Array.isArray(hiddenConfig.value) && hiddenConfig.value.includes(interaction.user.id);
+
                 let response = `**Hints for ${challenge_id}:**\n\n`;
                 const buttons = [];
                 for (let i = 0; i < hints.length; i++) {
                     const hint = hints[i];
                     const isUnlocked = await Models.UnlockedHint.findOne({ user_id: interaction.user.id, hint_id: hint._id.toString() });
-                    if (isUnlocked || hint.cost === 0) {
+                    if (isUnlocked || hint.cost === 0 || isHidden) {
                         response += `**Hint ${i+1}:** ${hint.hint_text}\n`;
                     } else {
                         response += `**Hint ${i+1}:** 🔒 *Locked* (Cost: ${hint.cost} points)\n`;
@@ -123,6 +127,14 @@ module.exports = {
                 await interaction.deferReply({ flags: 64 });
                 const hint = await Models.Hint.findById(hint_id);
                 if (!hint) return interaction.editReply({ content: '❌ Hint not found.' });
+
+                // Check if user is hidden
+                const hiddenConfig = await Models.Config.findOne({ key: 'hidden_users' });
+                const isHidden = hiddenConfig && Array.isArray(hiddenConfig.value) && hiddenConfig.value.includes(interaction.user.id);
+
+                if (isHidden) {
+                    return interaction.editReply({ content: `🔓 **Hint Unlocked (Hidden User):**\n\n${hint.hint_text}` });
+                }
 
                 const isUnlocked = await Models.UnlockedHint.findOne({ user_id: interaction.user.id, hint_id });
                 if (isUnlocked) return interaction.editReply({ content: `✅ You already bought this hint:\n\n${hint.hint_text}` });
@@ -267,19 +279,27 @@ module.exports = {
                     return interaction.editReply({ content: '⏳ This challenge has expired and is no longer accepting submissions.' });
                 }
 
+                // Check if user is hidden
+                const hiddenConfig = await Models.Config.findOne({ key: 'hidden_users' });
+                const isHidden = hiddenConfig && Array.isArray(hiddenConfig.value) && hiddenConfig.value.includes(interaction.user.id);
+
                 // Check Logging Channels
                 const logChanConf = await Models.Config.findOne({ key: 'channel_challenge_logs' });
                 const wrongChanConf = await Models.Config.findOne({ key: 'channel_wrong_submissions' });
                 let logChan = null;
                 let wrongChan = null;
                 try {
-                    if (logChanConf) logChan = await client.channels.fetch(logChanConf.value);
-                    if (wrongChanConf) wrongChan = await client.channels.fetch(wrongChanConf.value);
+                    if (logChanConf && !isHidden) logChan = await client.channels.fetch(logChanConf.value);
+                    if (wrongChanConf && !isHidden) wrongChan = await client.channels.fetch(wrongChanConf.value);
                 } catch (e) {
                     console.error('Error fetching log channels:', e);
                 }
 
                 if (submittedFlag === challenge.flag_text) {
+                    if (isHidden) {
+                        return interaction.editReply({ content: '🎉 **CORRECT! (Hidden User)**\nFlag is valid. No points awarded or logged.' });
+                    }
+
                     // Check if already solved
                     const alreadySolved = await Models.Solve.findOne({ user_id: interaction.user.id, challenge_id });
                     if (alreadySolved) {

@@ -49,6 +49,8 @@ module.exports = {
                 "❌ **`/remove_hint [hint_id]`**\n↳ Deletes a clue. **Economy Logic:** Instantly refunds the cost to every single player who bought it.\n\n" +
                 "🚫 **`/ban_user [member]`**\n↳ Blacklists an agent. Prevents all flag submissions and hint purchases.\n\n" +
                 "✅ **`/unban_user [member]`**\n↳ Restores full network access to a previously disqualified agent.\n\n" +
+                "👁️ **`/hide_user [member]`**\n↳ Hides an agent (tester/admin) from score logging, solves lists, and hint costs.\n\n" +
+                "🔓 **`/unhide_user [member]`**\n↳ Unhides an agent, restoring normal scoring and logging.\n\n" +
                 "☢️ **`/wipe_all`**\n↳ **NUCLEAR OPTION:** Wipes all players, scores, missions, and database storage for a fresh season.";
 
             embed.addFields(
