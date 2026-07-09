@@ -80,6 +80,13 @@ module.exports = {
                         existingMsg = await channel.messages.fetch(flag.msg_id);
                     } catch(e) {}
 
+                    let existingFileMsg = null;
+                    if (flag.file_url && flag.file_msg_id) {
+                        try {
+                            existingFileMsg = await channel.messages.fetch(flag.file_msg_id);
+                        } catch(e) {}
+                    }
+
                     let finalDesc = `**Objective:**\n\`\`\`text\n${flag.description}\n\`\`\``;
                     if (flag.connection_info) finalDesc += `\n**📡 Connection:**\n\`\`\`text\n${flag.connection_info}\n\`\`\``;
 
@@ -113,15 +120,25 @@ module.exports = {
                         components.push(row);
                     }
 
-                    if (!existingMsg) {
-                        // Re-post if deleted!
+                   if (!existingMsg) {
+                        // Card was deleted. Nuke any orphaned file message first, then re-post both fresh.
+                        if (existingFileMsg) {
+                            try { await existingFileMsg.delete(); } catch(e) {}
+                        }
                         const postMsg = await channel.send({ embeds: [embed], components });
                         let fMsg = null;
                         if (flag.file_url) fMsg = await channel.send({ files: [flag.file_url] });
                         await Models.Flag.updateOne({ challenge_id: flag.challenge_id }, { msg_id: postMsg.id, file_msg_id: fMsg ? fMsg.id : null });
-                    } else if (isExpired && existingMsg.components.length > 0) {
-                        // Remove buttons if expired
-                        await existingMsg.edit({ embeds: [embed], components: [] });
+                    } else {
+                        if (isExpired && existingMsg.components.length > 0) {
+                            // Remove buttons if expired
+                            await existingMsg.edit({ embeds: [embed], components: [] });
+                        }
+                        if (flag.file_url && !existingFileMsg) {
+                            // Card is fine but the file message was deleted independently. Re-post file only.
+                            const fMsg = await channel.send({ files: [flag.file_url] });
+                            await Models.Flag.updateOne({ challenge_id: flag.challenge_id }, { file_msg_id: fMsg.id });
+                        }
                     }
                 }
             } catch (err) {
