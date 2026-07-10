@@ -110,14 +110,29 @@ module.exports = {
                     if (flag.image_url) embed.setImage(flag.image_url);
                     if (flag.file_url) embed.setFooter({ text: "📁 See attached file below" });
 
+                    const totalSolves = await Models.Solve.countDocuments({ challenge_id: flag.challenge_id });
                     const components = [];
+                    const has_hints = await Models.Hint.countDocuments({ challenge_id: flag.challenge_id }) > 0;
+
+                    const row = new ActionRowBuilder();
                     if (!isExpired) {
-                        const has_hints = await Models.Hint.countDocuments({ challenge_id: flag.challenge_id }) > 0;
                         const btnSubmit = new ButtonBuilder().setCustomId(`submit:${flag.challenge_id}`).setLabel("Submit Flag").setStyle(ButtonStyle.Success).setEmoji("🚩");
+                        row.addComponents(btnSubmit);
+                    } else {
+                        const btnExpired = new ButtonBuilder().setCustomId(`expired:${flag.challenge_id}`).setLabel("Time Expired").setStyle(ButtonStyle.Danger).setEmoji("⏳").setDisabled(true);
+                        row.addComponents(btnExpired);
+                    }
+
+                    if (has_hints) {
                         const btnHint = new ButtonBuilder().setCustomId(`hints:${flag.challenge_id}`).setLabel("Hints").setStyle(ButtonStyle.Secondary).setEmoji("💡");
-                        const row = new ActionRowBuilder().addComponents(btnSubmit);
-                        if (has_hints) row.addComponents(btnHint);
-                        components.push(row);
+                        row.addComponents(btnHint);
+                    }
+
+                    components.push(row);
+
+                    if (totalSolves > 0) {
+                        const btnSolvers = new ButtonBuilder().setCustomId(`view_solves:${flag.challenge_id}`).setLabel(`${totalSolves} Solves`).setStyle(ButtonStyle.Primary).setEmoji("📜");
+                        components[0].addComponents(btnSolvers);
                     }
 
                    if (!existingMsg) {
@@ -130,9 +145,11 @@ module.exports = {
                         if (flag.file_url) fMsg = await channel.send({ files: [flag.file_url] });
                         await Models.Flag.updateOne({ challenge_id: flag.challenge_id }, { msg_id: postMsg.id, file_msg_id: fMsg ? fMsg.id : null });
                     } else {
-                        if (isExpired && existingMsg.components.length > 0) {
-                            // Remove buttons if expired
-                            await existingMsg.edit({ embeds: [embed], components: [] });
+                        const hasSubmit = existingMsg.components.some(r => r.components.some(btn => btn.customId && btn.customId.startsWith('submit')));
+                        const hasExpired = existingMsg.components.some(r => r.components.some(btn => btn.customId && btn.customId.startsWith('expired')));
+                        if (isExpired && (hasSubmit || !hasExpired)) {
+                            // Update buttons to expired state while preserving hints/solves
+                            await existingMsg.edit({ embeds: [embed], components });
                         }
                         if (flag.file_url && !existingFileMsg) {
                             // Card is fine but the file message was deleted independently. Re-post file only.
@@ -144,6 +161,6 @@ module.exports = {
             } catch (err) {
                 console.error("Watchdog loop error:", err);
             }
-        }, 60000); // Check every 60 seconds
+        }, 30000); // Check every 30 seconds
     },
 };

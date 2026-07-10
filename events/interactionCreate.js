@@ -122,9 +122,18 @@ module.exports = {
                 return;
             }
 
-            if (action === 'buy_hint') {
+            if (action === 'buy_hint_cancel') {
+                await interaction.update({ content: '❌ Hint purchase cancelled.', components: [] });
+                return;
+            }
+
+            if (action === 'buy_hint' || action === 'buy_hint_confirm') {
                 const hint_id = challenge_id; // because split(':') put the second part into challenge_id var
-                await interaction.deferReply({ flags: 64 });
+                if (action === 'buy_hint') {
+                    await interaction.deferReply({ flags: 64 });
+                } else {
+                    await interaction.deferUpdate();
+                }
                 const hint = await Models.Hint.findById(hint_id);
                 if (!hint) return interaction.editReply({ content: '❌ Hint not found.' });
 
@@ -139,6 +148,28 @@ module.exports = {
                 const isUnlocked = await Models.UnlockedHint.findOne({ user_id: interaction.user.id, hint_id });
                 if (isUnlocked) return interaction.editReply({ content: `✅ You already bought this hint:\n\n${hint.hint_text}` });
 
+                // Check if challenge is expired
+                const challengeDoc = await Models.Flag.findOne({ challenge_id: hint.challenge_id });
+                const now = Math.floor(Date.now() / 1000);
+                const isExpired = challengeDoc && challengeDoc.end_time && now > challengeDoc.end_time;
+
+                if (isExpired && action === 'buy_hint') {
+                    const row = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`buy_hint_confirm:${hint_id}`)
+                            .setLabel('Confirm Purchase')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId('buy_hint_cancel')
+                            .setLabel('Cancel')
+                            .setStyle(ButtonStyle.Danger)
+                    );
+                    return interaction.editReply({
+                        content: `⚠️ **Warning: This challenge has expired.**\nAre you sure you want to buy this hint? It will cost **${hint.cost} points** and will **not be refunded** unless the challenge or hint is deleted by an admin.`,
+                        components: [row]
+                    });
+                }
+
                 const score = await Models.Score.findOne({ user_id: interaction.user.id });
                 if (!score || score.points < hint.cost) {
                     return interaction.editReply({ content: `❌ Not enough points! You need ${hint.cost} but have ${score ? score.points : 0}.` });
@@ -150,7 +181,7 @@ module.exports = {
                 
                 await updateLeaderboard(client);
                 
-                await interaction.editReply({ content: `🔓 **Hint Unlocked!**\n\n${hint.hint_text}` });
+                await interaction.editReply({ content: `🔓 **Hint Unlocked!**\n\n${hint.hint_text}`, components: [] });
                 return;
             }
 

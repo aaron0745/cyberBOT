@@ -157,25 +157,25 @@ async function updateChallengePost(client, challenge_id) {
         const components = [];
         const has_hints = await Models.Hint.countDocuments({ challenge_id: flag.challenge_id }) > 0;
         
+        const row = new ActionRowBuilder();
         if (!isExpired) {
             const btnSubmit = new ButtonBuilder().setCustomId(`submit:${flag.challenge_id}`).setLabel("Submit Flag").setStyle(ButtonStyle.Success).setEmoji("🚩");
-            const btnHint = new ButtonBuilder().setCustomId(`hints:${flag.challenge_id}`).setLabel("Hints").setStyle(ButtonStyle.Secondary).setEmoji("💡");
-            const row = new ActionRowBuilder().addComponents(btnSubmit);
-            if (has_hints) row.addComponents(btnHint);
-            components.push(row);
+            row.addComponents(btnSubmit);
         } else {
             const btnExpired = new ButtonBuilder().setCustomId(`expired:${flag.challenge_id}`).setLabel("Time Expired").setStyle(ButtonStyle.Danger).setEmoji("⏳").setDisabled(true);
-            const row = new ActionRowBuilder().addComponents(btnExpired);
-            components.push(row);
+            row.addComponents(btnExpired);
         }
+        
+        if (has_hints) {
+            const btnHint = new ButtonBuilder().setCustomId(`hints:${flag.challenge_id}`).setLabel("Hints").setStyle(ButtonStyle.Secondary).setEmoji("💡");
+            row.addComponents(btnHint);
+        }
+        
+        components.push(row);
         
         if (totalSolves > 0) {
             const btnSolvers = new ButtonBuilder().setCustomId(`view_solves:${flag.challenge_id}`).setLabel(`${totalSolves} Solves`).setStyle(ButtonStyle.Primary).setEmoji("📜");
-            if (components.length > 0) {
-                components[0].addComponents(btnSolvers);
-            } else {
-                components.push(new ActionRowBuilder().addComponents(btnSolvers));
-            }
+            components[0].addComponents(btnSolvers);
         }
 
         await existingMsg.edit({ embeds: [embed], components });

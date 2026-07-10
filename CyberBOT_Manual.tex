@@ -1,0 +1,1225 @@
+\documentclass[12pt,a4paper]{report}
+
+% --- PACKAGES ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in, headheight=15pt}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning, calc}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage[expansion=false]{microtype}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{caption}
+
+% --- FONT CONFIGURATION ---
+\usepackage{tgadventor}
+\renewcommand{\familydefault}{\sfdefault}
+
+% --- COLORS ---
+\definecolor{cybergold}{RGB}{180, 120, 0}
+\definecolor{cybergreen}{RGB}{0, 150, 80}
+\definecolor{cybercyan}{RGB}{0, 70, 150}
+\definecolor{cyberred}{RGB}{220, 50, 50}
+\definecolor{cyberblue}{RGB}{0, 71, 171}
+\definecolor{cyberdark}{RGB}{10, 15, 20}
+\definecolor{cyberdarkgray}{RGB}{22, 25, 30}
+\definecolor{cyberpurple}{RGB}{160, 80, 220}
+\definecolor{codebg}{RGB}{245, 247, 250}
+
+% --- CHAPTER & SECTION STYLING ---
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{cybergold}}
+  {\filleft\Large\chaptername\ \thechapter}
+  {1ex}
+  {\titlerule[2pt]\vspace{1ex}\huge\filleft}
+
+\titleformat{\section}
+  {\normalfont\large\bfseries\color{cybercyan}}
+  {\thesection}{1em}{}[\color{cybercyan!40}\titlerule]
+
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries\color{cybergold!80!black}}
+  {\thesubsection}{1em}{}
+
+% --- HYPERLINKS ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=cybercyan,
+    urlcolor=cybergold,
+    pdftitle={CyberBOT --- Complete Codebase Reference Manual},
+}
+
+% --- CODE LISTINGS ---
+\lstdefinestyle{bashstyle}{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    rulecolor=\color{cybergold!50},
+}
+\lstset{style=bashstyle}
+
+% --- HEADER / FOOTER ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textbf{\color{cybergold}CyberBOT}}
+\fancyhead[R]{\textit{\color{cybercyan}Codebase Reference Manual}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{1.5pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{cybergold}\leaders\hrule height \headrulewidth\hfill}}
+
+% --- CUSTOM COMMANDS ---
+\newcommand{\cmd}[1]{\texttt{\color{cybercyan}\textbf{#1}}}
+\newcommand{\param}[1]{\texttt{\color{cyberdark}\textit{#1}}}
+\newcommand{\file}[1]{\texttt{\color{cyberpurple!80!black}#1}}
+
+\newcommand{\note}[1]{
+    \begin{tcolorbox}[colback=cyberblue!5, colframe=cyberblue,
+        title=\textbf{NOTE}, fonttitle=\sffamily\small]
+    #1
+    \end{tcolorbox}
+}
+\newcommand{\warning}[1]{
+    \begin{tcolorbox}[colback=cyberred!5, colframe=cyberred,
+        title=\textbf{CRITICAL WARNING}, fonttitle=\sffamily\small]
+    #1
+    \end{tcolorbox}
+}
+
+% centered figure helper
+\newcommand{\centerfig}[3][0.92]{%
+    \begin{center}
+        \includegraphics[width=#1\linewidth]{#2}
+        \captionof{figure}{#3}
+    \end{center}
+}
+
+% --- TIKZ STYLES ---
+\tikzset{
+    block/.style={rectangle, rounded corners=4pt, draw=cybercyan, fill=cybercyan!8,
+        thick, minimum width=3.2cm, minimum height=1.0cm,
+        align=center, font=\sffamily\footnotesize},
+    decision/.style={diamond, draw=cybergold!80!black, fill=cybergold!10, thick,
+        minimum width=3.0cm, minimum height=1.0cm,
+        align=center, font=\sffamily\footnotesize, aspect=2},
+    db/.style={cylinder, shape border rotate=90, aspect=0.3,
+        draw=cybergreen!70!black, fill=cybergreen!10, thick,
+        minimum width=2.2cm, minimum height=1.4cm,
+        align=center, font=\sffamily\footnotesize},
+    ok/.style={block, draw=cybergreen!70!black, fill=cybergreen!8},
+    danger/.style={block, draw=cyberred, fill=cyberred!7},
+    gold/.style={block, draw=cybergold!80!black, fill=cybergold!10},
+    arrow/.style={thick, ->, >=stealth, draw=gray!60},
+    arrowcyan/.style={thick, ->, >=stealth, draw=cybercyan},
+    arrowgreen/.style={thick, ->, >=stealth, draw=cybergreen!70!black},
+    arrowred/.style={thick, ->, >=stealth, draw=cyberred},
+    arrowgold/.style={thick, ->, >=stealth, draw=cybergold!80!black},
+    arrowpurple/.style={thick, ->, >=stealth, draw=cyberpurple},
+}
+
+% diagram wrapper: centred, titled, spaced
+\newenvironment{diagram}[1]{%
+    \begin{center}
+    \textbf{#1}\\[0.5cm]
+    \begin{tikzpicture}
+}{%
+    \end{tikzpicture}
+    \end{center}
+    \vspace{0.3cm}
+}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% --- TITLE PAGE ---
+\begin{titlepage}
+    \pagecolor{cyberdark}
+    \centering
+    \vspace*{1.2cm}
+
+    \begin{tikzpicture}
+        \draw[cybergold!40, line width=0.8pt, dashed] (0,0) circle (3.8cm);
+        \foreach \a in {0,20,...,340}
+            \draw[cybergold!30, line width=0.7pt] (\a:3.8cm) -- (\a:4.1cm);
+        \draw[cybergold, line width=2pt] (0,0) circle (3.3cm);
+        \foreach \a in {45,135,225,315}
+            \draw[cybercyan, line width=1.5pt] (\a:3.3cm) -- (\a:3.7cm);
+        \node[circle, draw=cybercyan, line width=2.5pt,
+              minimum size=5.2cm, fill=cyberdarkgray] at (0,0) {
+            \color{white}\Huge\textbf{CB}
+        };
+    \end{tikzpicture}
+
+    \vspace{1cm}
+    {\color{white}\fontsize{34}{38}\selectfont\textbf{\textsf{CyberBOT}}}\\[0.4cm]
+    {\color{cybergold}\Large\textsf{C O M P L E T E \ \ C O D E B A S E \ \ M A N U A L}}\\[0.3cm]
+    {\color{white!60}\normalsize\textsf{Node.js / discord.js v14 / MongoDB}}
+
+    \vspace{1.2cm}
+    \begin{tcolorbox}[colback=cyberdarkgray, colframe=cybergold, width=12cm, center]
+        \centering\color{white}
+        \large\textbf{SGCTF NETWORK COMMAND}\\[0.2cm]
+        \small A file-by-file, command-by-command reference for every subsystem in the
+        \texttt{cyberBOT-main} repository.
+    \end{tcolorbox}
+
+    \vfill
+    {\color{cybergold}\large \today}\\[0.3cm]
+    {\color{white!40}\small Reference Edition --- covers commands/, events/, database/, utils.js,
+    index.js, keep\_alive.js, deploy-commands.js, python\_scripts/}
+    \vspace{1cm}
+\end{titlepage}
+\nopagecolor
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\chapter{System Overview}
+% ============================================================
+
+\textbf{CyberBOT} is an asynchronous Capture The Flag platform for Discord. It runs on
+\textbf{Node.js} using \textbf{discord.js v14} for the Discord gateway/REST layer and
+\textbf{MongoDB} (via Mongoose) for all persistent state. Players interact through slash commands
+and message components (buttons and modals); administrators manage the competition through a set
+of eighteen permissioned slash commands.
+
+At a high level, the engine is composed of six areas of the repository:
+
+\begin{itemize}
+    \item \file{index.js} --- process entry point: builds the Discord client, recursively loads
+          every command and event module, starts the keep-alive server, and connects to MongoDB.
+    \item \file{commands/player/} and \file{commands/admin/} --- one file per slash command.
+    \item \file{events/} --- \file{ready.js} (startup + the scheduling/watchdog loop),
+          \file{interactionCreate.js} (the router for every button, modal, and slash command
+          interaction), and \file{guildCreate.js} (the single-server lock).
+    \item \file{database/mongoose.js} --- schema definitions and the connection helper.
+    \item \file{utils.js} --- shared rendering logic used by more than one command/event:
+          leaderboard embeds and the live challenge-post renderer.
+    \item \file{python\_scripts/draw\_profile.py} --- a standalone Pillow script, invoked as a
+          child process, that rasterizes the 1800$\times$700 dossier card returned by
+          \cmd{/profile}.
+\end{itemize}
+
+\section{Top-Level Architecture}
+
+\begin{diagram}{Diagram 1.1 --- Top-Level Architecture}
+    [node distance=1.9cm]
+    \node (discord) [gold]                                          {Discord API};
+    \node (index)   [block, below=of discord]                       {index.js \\ Client + Loader};
+    \node (events)  [block, below left=1.6cm and 1.6cm of index]    {events/ \\ ready, interactionCreate, guildCreate};
+    \node (cmds)    [block, below right=1.6cm and 1.6cm of index]   {commands/ \\ admin/ \& player/};
+    \node (utils)   [block, below=2.6cm of index]                   {utils.js \\ shared render helpers};
+    \node (db)      [db,    below=2cm of utils]                     {MongoDB Atlas \\ via Mongoose};
+    \node (py)      [block, below=1.6cm of cmds,
+                     draw=cyberpurple, fill=cyberpurple!8]           {draw\_profile.py \\ child process};
+    \node (express) [block, below=1.6cm of events,
+                     draw=cybergreen!70!black, fill=cybergreen!8]    {keep\_alive.js \\ Express server};
+
+    \draw [arrowgold]        (discord) -- node[right,  font=\tiny]{Events} (index);
+    \draw [arrowgold]        (index)   -- node[left,   font=\tiny]{REST}   (discord);
+    \draw [arrowcyan]        (index)   -- (events);
+    \draw [arrowcyan]        (index)   -- (cmds);
+    \draw [arrowcyan]        (events)  -- (utils);
+    \draw [arrowcyan]        (cmds)    -- (utils);
+    \draw [arrowcyan, dashed](utils)   -- (db);
+    \draw [arrowpurple]      (cmds)    -- (py);
+    \draw [arrowgreen]       (events)  -- (express);
+\end{diagram}
+
+\section{Boot Sequence (index.js)}
+
+\begin{enumerate}
+    \item Sets \texttt{process.env.TZ = 'Asia/Kolkata'} so all timestamp math (schedules,
+          \texttt{DD/MM HH:MM} parsing) is anchored to a single timezone regardless of host.
+    \item Constructs the \texttt{Client} with intents \texttt{Guilds}, \texttt{GuildMessages},
+          \texttt{MessageContent}, and \texttt{GuildMembers}.
+    \item \texttt{loadCommands()} walks \file{commands/} recursively; any file exporting both
+          \texttt{data} and \texttt{execute} is registered into \texttt{client.commands}, a
+          \texttt{Collection} keyed by command name.
+    \item Every file directly inside \file{events/} is loaded; files exporting \texttt{once: true}
+          are bound with \texttt{client.once}, everything else with \texttt{client.on}.
+    \item \texttt{keepAlive()} starts the Express server (Chapter~3).
+    \item \texttt{connectDB()} opens the Mongoose connection; \textbf{only once that promise
+          resolves} does the client call \texttt{client.login()}. If MongoDB is unreachable, the
+          bot never logs in to Discord.
+\end{enumerate}
+
+\newpage
+% ============================================================
+\chapter{Installation \& Deployment}
+% ============================================================
+
+\section{System Requirements}
+
+\begin{itemize}
+    \item \textbf{Node.js v20+} --- runtime for \texttt{discord.js} and the engine core.
+    \item \textbf{Python 3 + Pillow (PIL)} --- required only for \texttt{draw\_profile.py},
+          invoked as a subprocess for dossier card rendering.
+    \item \textbf{MongoDB} cluster (Atlas or self-hosted) reachable from the bot's host.
+    \item \textbf{Discord Bot Token \& Client ID} from the Discord Developer Portal.
+    \item \textbf{Gateway Intents} --- \texttt{Guilds}, \texttt{GuildMessages},
+          \texttt{MessageContent}, \texttt{GuildMembers} (must be enabled in the Dev Portal too).
+    \item \textbf{Bot Permissions} --- Send Messages, Embed Links, Attach Files, Manage Roles,
+          Read Message History.
+    \item \file{font.ttf} --- must exist in the project root; the dossier renderer loads it by
+          relative path and exits if it is missing.
+\end{itemize}
+
+\section{Dependencies}
+
+\begin{center}
+\begin{tabular}{l l}
+\toprule
+\textbf{Package} & \textbf{Role} \\
+\midrule
+\texttt{discord.js} & Gateway client, REST, slash-command builders, components \\
+\texttt{mongoose}   & MongoDB object modelling \\
+\texttt{dotenv}      & Loads \file{.env} into \texttt{process.env} \\
+\texttt{express}     & Keep-alive HTTP endpoint \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Installation}
+
+\begin{lstlisting}[language=bash, caption=Standard Deployment]
+git clone https://github.com/aaron0745/CyberBOT.git
+cd CyberBOT
+npm install
+cp .env.example .env
+nano .env               # Fill in DISCORD_TOKEN, CLIENT_ID, GUILD_ID, MONGODB_URI
+node deploy-commands.js # Register slash commands to GUILD_ID
+npm start
+\end{lstlisting}
+
+\note{
+    \cmd{npm start} runs \texttt{node --max-old-space-size=256 index.js}, capping heap usage so the
+    bot fits comfortably inside the memory limits of free-tier hosting platforms.
+}
+
+\section{Environment Configuration}
+
+\begin{tcolorbox}[colback=codebg, colframe=cybergold!60]
+\begin{verbatim}
+DISCORD_TOKEN=your_token_here
+CLIENT_ID=your_bot_client_id_here
+GUILD_ID=your_server_id_here
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/dbname
+RENDER_URL=https://your-app-name.onrender.com
+\end{verbatim}
+\end{tcolorbox}
+
+\note{
+    \param{GUILD\_ID} does double duty: \file{deploy-commands.js} registers slash commands
+    directly to that guild (instant availability, no global-command propagation delay), and the
+    \file{guildCreate.js} handler treats it as the \textbf{only authorized server} --- see
+    Chapter~9.
+}
+
+\section{File Structure}
+
+\begin{tcolorbox}[colback=codebg, colframe=cybercyan!60]
+\begin{verbatim}
+cyberBOT-main/
++-- commands/
+|   +-- admin/                 # 18 admin-only slash commands
+|   +-- player/                # profile, leaderboard, help, about
++-- database/
+|   +-- mongoose.js            # Schemas + connectDB()
++-- events/
+|   +-- ready.js               # Presence, scheduler + watchdog loop
+|   +-- interactionCreate.js   # Commands, buttons, modals, cooldowns
+|   +-- guildCreate.js         # Guild-lock security handler
++-- python_scripts/
+|   +-- draw_profile.py        # PIL renderer, invoked as a child process
++-- index.js                    # Client bootstrap, command/event loader
++-- deploy-commands.js          # Registers slash commands to GUILD_ID
++-- utils.js                     # Leaderboard + challenge post renderers
++-- keep_alive.js                # Express keep-alive server
++-- font.ttf                      # Font for profile card generation
++-- package.json                  # discord.js, mongoose, dotenv, express
++-- .env                          # Secrets (gitignored)
+\end{verbatim}
+\end{tcolorbox}
+
+\section{Deploying Slash Commands}
+
+\file{deploy-commands.js} is a standalone script, not part of the running bot process. It
+recursively reads every file in \file{commands/} that exports \texttt{data}/\texttt{execute},
+serializes each \texttt{SlashCommandBuilder} with \texttt{.toJSON()}, and calls
+\texttt{PUT /applications/\{id\}/guilds/\{guild\_id\}/commands} through discord.js's \texttt{REST}
+helper. Because it targets \texttt{Routes.applicationGuildCommands} (a \emph{guild} command
+registration) rather than the global endpoint, new or edited commands appear immediately in the
+configured server instead of taking up to an hour to propagate. Re-run it any time a command's
+name, description, or options change.
+
+\section{Troubleshooting}
+
+\begin{center}
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Issue} & \textbf{Resolution} \\
+\midrule
+Commands not appearing     & Re-run \texttt{node deploy-commands.js}; confirm \texttt{CLIENT\_ID} and \texttt{GUILD\_ID} are both set. \\
+Bot leaves the server immediately & The server's ID does not match \texttt{GUILD\_ID} --- this is the Guild Lock working as intended (Chapter~9). \\
+Missing profile card       & Ensure \texttt{font.ttf} exists in the root directory and that \texttt{python3}/\texttt{pillow} are installed and on \texttt{PATH}. \\
+\texttt{Mongo Server Selection Error} & Check \texttt{MONGODB\_URI}, IP allow-list on Atlas, and network connectivity. \\
+Bot never logs into Discord & \texttt{connectDB()} failed and never resolved --- check MongoDB connectivity first; \texttt{client.login()} only runs after a successful connection. \\
+Bot sleeps on free hosting & Set \texttt{RENDER\_URL} so \texttt{keep\_alive.js} can self-ping every 14 minutes. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\chapter{The Keep-Alive Server}
+% ============================================================
+
+\file{keep\_alive.js} exports a single \texttt{keepAlive()} function, called once from
+\file{index.js}. It starts a minimal Express app that responds \texttt{"Bot is running!"} to any
+request on \texttt{process.env.PORT} (default \texttt{3000}), which satisfies free-tier hosts
+(Render, Replit, etc.) that require an open HTTP port to keep a process alive.
+
+If \param{RENDER\_URL} is set, a \texttt{setInterval} fires every 14 minutes and issues an HTTPS
+\texttt{GET} against that URL, printing the response status or the error to the console. This is a
+self-ping: it exists purely to stop free-tier hosts from putting the process to sleep after a
+period of inactivity. If \param{RENDER\_URL} is left unset, the interval still runs but performs no
+request.
+
+% ============================================================
+\chapter{Database Schema}
+% ============================================================
+
+CyberBOT persists all state in \textbf{MongoDB} via Mongoose models defined in
+\file{database/mongoose.js}. There is no local database file; \texttt{connectDB()} opens a single
+connection to the configured \texttt{MONGODB\_URI}, with listeners that log
+\texttt{disconnected}/\texttt{reconnected}/\texttt{error} events, before the Discord client logs
+in.
+
+\begin{longtable}{>{\ttfamily}p{3.6cm} p{3.4cm} p{5.8cm}}
+\toprule
+\textbf{Model} & \textbf{Unique Key} & \textbf{Purpose} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Model} & \textbf{Unique Key} & \textbf{Purpose} \\
+\midrule
+\endhead
+Flag           & challenge\_id            & Challenge data: \texttt{flag\_text}, \texttt{points}, \texttt{category}, scheduling fields (\texttt{start\_time}, \texttt{end\_time}, \texttt{posted\_at}), \texttt{description}, \texttt{connection\_info}, \texttt{channel\_id}, \texttt{msg\_id}, \texttt{file\_msg\_id}, \texttt{file\_url}, \texttt{image\_url}. \\[0.3cm]
+Score          & user\_id                 & Running point total and cached \texttt{username} per player. \\[0.3cm]
+Solve          & (user\_id, challenge\_id) compound unique index & One row per correct submission; numeric Unix \texttt{timestamp}; stores \texttt{points\_awarded} so revoke/delete can reverse the exact amount later. \\[0.3cm]
+Hint           & \_id (ObjectId)          & Purchasable hints linked to a \texttt{challenge\_id} by string, with a point \texttt{cost}. \\[0.3cm]
+UnlockedHint   & (user\_id, hint\_id) compound unique index & Which players have purchased which hints. \\[0.3cm]
+RoleReward     & role\_id                 & Discord role IDs mapped to point thresholds for auto-promotion. \\[0.3cm]
+Banlist        & user\_id                 & Disqualified players blocked from submissions and hint purchases. \\[0.3cm]
+Config         & key                      & Free-form key/value settings store (see below). \\
+\bottomrule
+\end{longtable}
+
+\note{
+\texttt{Solve.points\_awarded} freezes the exact number of points a solve was worth at capture
+time (base points plus any First Blood/Silver/Bronze bonus), so \cmd{/revoke} and \cmd{/delete}
+can reverse awards precisely even if a challenge's base points were edited afterward. Older records
+that predate this field fall back to \texttt{flag.points + positional bonus}.
+}
+
+\section{Config Keys in Use}
+
+The \texttt{Config} collection is an untyped key/value store (\texttt{value} is
+\texttt{Schema.Types.Mixed}). The keys the codebase reads and writes are:
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}l p{8.5cm}}
+\toprule
+\textbf{Key} & \textbf{Meaning} \\
+\midrule
+channel\_leaderboard        & Channel that hosts the persistent auto-updating Top 10 message. \\
+msg\_leaderboard            & Message ID of that persistent leaderboard post (edited in place). \\
+channel\_challenge\_logs    & Channel for correct-solve announcements and collusion alerts. \\
+channel\_wrong\_submissions & Channel for every incorrect flag attempt. \\
+channel\_general            & Channel for "NEW KING" championship announcements. \\
+channel\_admin\_logs        & Channel that mirrors destructive/administrative actions. \\
+role\_champion               & Role ID granted to the current \#1 player. \\
+current\_champion\_id        & User ID of whoever currently holds \texttt{role\_champion}. \\
+hidden\_users                & Array of user IDs excluded from scoring, logging, and hint costs. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+% ============================================================
+\chapter{The Interaction Router (interactionCreate.js)}
+% ============================================================
+
+Every slash command, button click, and modal submission passes through a single
+\texttt{InteractionCreate} handler. It branches on the interaction type.
+
+\section{Cooldown Store}
+
+An in-memory \texttt{Map} named \texttt{cooldowns} tracks two independent per-user rate limits by
+key prefix: \texttt{lb\_<userId>} for \cmd{/leaderboard} and \texttt{sub\_<userId>} for modal flag
+submissions. A \texttt{setInterval} sweeps the map every 10 minutes and deletes any entry older
+than 60 seconds, so the map cannot grow unbounded over a long-running process. There is no
+administrator bypass for either cooldown.
+
+\section{Slash Commands}
+
+Before dispatching to the matched command handler, every slash-command interaction is checked
+against the \texttt{Banlist} collection; banned users are rejected immediately. \cmd{/leaderboard}
+specifically is additionally checked against the 30-second cooldown before its handler runs.
+Command errors are caught and reported back to the user ephemerally rather than crashing the
+process.
+
+\section{Button Interactions}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}l p{9.5cm}}
+\toprule
+\textbf{customId prefix} & \textbf{Behaviour} \\
+\midrule
+submit          & Opens the flag-submission modal (banlist-checked first). \\
+hints           & Lists every hint for a challenge; locked hints render a per-hint \texttt{buy\_hint} button showing its cost. Hidden users (Chapter~6) see every hint text unlocked. \\
+buy\_hint        & Deducts the hint's cost from the buyer's score, records an \texttt{UnlockedHint}, and refreshes the leaderboard (spending can change standings). Hidden users get the hint text for free with no record kept. \\
+view\_solves     & Opens a paginated (10-per-page) list of everyone who solved a given challenge, oldest first. \\
+solve\_prev / solve\_next & Page through the solvers list in place via \texttt{interaction.update()}. \\
+lb\_main\_prev / lb\_main\_next & Page through a standalone \cmd{/leaderboard} reply in place. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Modal Submissions --- Flag Capture Pipeline}
+
+The \texttt{modal\_submit} handler is the core scoring pipeline. It runs, in order:
+
+\begin{enumerate}
+    \item \textbf{2-second cooldown check} against the \texttt{sub\_<userId>} key.
+    \item \textbf{Existence check} --- the challenge must still exist in \texttt{Flag}.
+    \item \textbf{Expiry check} --- rejects if \texttt{current\_time > challenge.end\_time}.
+    \item \textbf{Hidden-user branch} --- if the submitter is in \texttt{hidden\_users}, a correct
+          flag is confirmed with no \texttt{Solve} record, no score change, and no channel logging.
+    \item \textbf{Duplicate check} --- rejects if a \texttt{Solve} already exists for this
+          (user, challenge) pair.
+    \item \textbf{Collusion check} --- if the most recent prior solve on this challenge happened
+          within 60 seconds and belongs to a different user, a \textbf{POSSIBLE COLLUSION ALERT}
+          is posted to the challenge-logs channel naming both users. The solve is still recorded
+          normally; this is informational only.
+    \item \textbf{Bonus calculation} --- 1st solver +50, 2nd +25, 3rd +10, 4th onward +0, added to
+          the challenge's base points to get \texttt{totalAward}.
+    \item \textbf{Persistence} --- creates the \texttt{Solve} record with \texttt{points\_awarded},
+          then \texttt{\$inc}s the player's \texttt{Score} (upserting a new Score document with the
+          current Discord username if one doesn't exist).
+    \item \textbf{Role rewards} --- every configured \texttt{RoleReward} whose threshold the
+          player's new total meets is added to their Discord roles (idempotent; only added if
+          missing).
+    \item \textbf{Refresh} --- calls \texttt{updateLeaderboard()} and
+          \texttt{updateChallengePost()} (Chapter~7), then confirms the capture to the player.
+\end{enumerate}
+
+An incorrect submission is logged to the wrong-submissions channel (with the literal guessed
+string) and the player is told to try again. Neither the collusion alert nor the wrong-submission
+log fires for hidden users.
+
+\begin{diagram}{Diagram 4.1 --- Submission Pipeline}
+    [node distance=1.5cm]
+    \node (btn)   [block]                                    {Submit Flag \\ button clicked};
+    \node (ban)   [decision, right=2.2cm of btn]             {Banned?};
+    \node (deny)  [danger,   above=1.4cm of ban]             {ACCESS \\ DENIED};
+    \node (modal) [block,    right=2.2cm of ban]             {Modal shown \\ (flagInput)};
+    \node (cd)    [decision, below=2cm of modal]             {2s submit \\ cooldown?};
+    \node (wait)  [danger,   left=1.8cm of cd]               {Rate Limited};
+    \node (exp)   [decision, below=2cm of cd]                {Expired?};
+    \node (dup)   [decision, below=2cm of exp]                {Already \\ solved?};
+    \node (chk)   [decision, below=2cm of dup]                {Flag \\ correct?};
+    \node (wrong) [danger,   left=1.8cm of chk]             {Wrong Flag \\ (logged)};
+    \node (award) [ok,       below=1.8cm of chk]             {Award Points \\ + Bonus};
+    \node (lb)    [block,    below=1.5cm of award]           {updateLeaderboard() \\ + updateChallengePost()};
+
+    \draw [arrowcyan]  (btn)   -- (ban);
+    \draw [arrowred]   (ban)   -- node[left,  font=\tiny]{Yes} (deny);
+    \draw [arrowcyan]  (ban)   -- node[above, font=\tiny]{No}  (modal);
+    \draw [arrowcyan]  (modal) -- (cd);
+    \draw [arrowred]   (cd)    -- node[above, font=\tiny]{Yes} (wait);
+    \draw [arrowcyan]  (cd)    -- node[right, font=\tiny]{No}  (exp);
+    \draw [arrowcyan]  (exp)   -- (dup);
+    \draw [arrowcyan]  (dup)   -- (chk);
+    \draw [arrowred]   (chk)   -- node[above, font=\tiny]{No}  (wrong);
+    \draw [arrowgreen] (chk)   -- node[right, font=\tiny]{Yes} (award);
+    \draw [arrowcyan]  (award) -- (lb);
+\end{diagram}
+
+\section{Base Points \& First Blood Bonuses}
+
+\begin{center}
+\begin{tabular}{c l c r}
+\toprule
+\textbf{Solve Order} & \textbf{Title} & \textbf{Bonus} & \textbf{Example (100 pt base)} \\
+\midrule
+1st  & First Blood & +50 pts & \textbf{150 pts} \\
+2nd  & Silver      & +25 pts & \textbf{125 pts} \\
+3rd  & Bronze      & +10 pts & \textbf{110 pts} \\
+4th+ & ---         & +0 pts  & \textbf{100 pts} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+% ============================================================
+\chapter{The Background Loop (events/ready.js)}
+% ============================================================
+
+On \texttt{ClientReady}, \file{ready.js} sets an initial presence, starts a 150-second interval
+that alternates the bot's activity text between two phrases, and --- most importantly --- starts a
+single \textbf{30-second \texttt{setInterval}} that performs both scheduled posting and
+anti-deletion recovery in one pass. There is only one interval; both jobs share it.
+
+\begin{diagram}{Diagram 5.1 --- Unified Background Loop}
+    [node distance=2.3cm]
+    \node (tick)   [gold]                                     {60s Tick};
+    \node (sched)  [decision, right=3cm of tick]              {start\_time \\ $\leq$ now \& \\ no msg\_id?};
+    \node (post)   [ok,       above=1.8cm of sched]           {Post Embed \\ + File};
+    \node (active) [decision, below=2.5cm of tick]            {msg\_id set \\ (active flags)};
+    \node (fetch)  [block,    right=3cm of active]            {Fetch embed \\ by msg\_id};
+    \node (exists) [decision, below=2cm of fetch]             {Message \\ still exists?};
+    \node (expchk) [decision, right=2.5cm of exists]          {end\_time \\ passed?};
+    \node (edit)   [block,    below=1.8cm of expchk]          {Grey Out + \\ Disable Buttons};
+    \node (repost) [danger,   below=1.8cm of exists]          {Re-post Embed \\ + Update msg\_id};
+
+    \draw [arrowgold]  (tick)   -- (sched);
+    \draw [arrowgreen] (sched)  -- node[right, font=\tiny]{Yes} (post);
+    \draw [arrowgold]  (tick)   -- (active);
+    \draw [arrowcyan]  (active) -- (fetch);
+    \draw [arrowcyan]  (fetch)  -- (exists);
+    \draw [arrowred]   (exists) -- node[left, font=\tiny]{No}  (repost);
+    \draw [arrowcyan]  (exists) -- node[above, font=\tiny]{Yes} (expchk);
+    \draw [arrowcyan]  (expchk) -- (edit);
+\end{diagram}
+
+\section{Pass 1 --- Scheduled Posting}
+
+\texttt{Models.Flag.find(\{ start\_time: \{ \$lte: now \}, msg\_id: null, channel\_id: \{ \$ne: null \} \})}
+selects every challenge whose scheduled time has arrived but that has never been posted. For each
+one the loop builds the mission embed (bounty, category, countdown, an initially empty First Blood
+field), a Submit Flag button, and --- if any hints exist for that challenge --- a Hints button. It
+sends the embed, then sends a second message with the attached file if \texttt{file\_url} is set,
+and writes the resulting \texttt{msg\_id}/\texttt{file\_msg\_id} back onto the \texttt{Flag}
+document.
+
+\section{Pass 2 --- Anti-Deletion Watchdog \& Expiry}
+
+Every \texttt{Flag} with an existing \texttt{msg\_id} and \texttt{channel\_id} is treated as
+"active" and re-evaluated on every tick:
+
+\begin{itemize}
+    \item The loop independently tries to fetch the main embed message (\texttt{msg\_id}) and, if
+          a file was attached, the separate file message (\texttt{file\_msg\_id}). These two
+          fetches are tracked separately, because either message can be deleted independently of
+          the other.
+    \item \textbf{If the main embed message is gone}, any surviving orphaned file message is
+          deleted first, and then both the embed and (if applicable) the file are re-posted fresh,
+          with new \texttt{msg\_id}/\texttt{file\_msg\_id} values written back to the database.
+    \item \textbf{If the main embed message still exists} but has just crossed its
+          \texttt{end\_time}, the embed is edited in place: its color turns grey, the "Time Left"
+          field reads \texttt{EXPIRED}, and the \cmd{Submit Flag} button is replaced with a
+          disabled \texttt{Time Expired} button, while the active \texttt{Hints} and \texttt{Solves}
+          buttons are preserved so players can still access clues and view solvers.
+    \item \textbf{If the main embed message still exists and the file message was independently
+          deleted} (but the embed itself is intact), only the file is re-sent and only
+          \texttt{file\_msg\_id} is updated --- the embed message and its ID are left untouched.
+\end{itemize}
+
+This three-way split is what lets the watchdog recover correctly no matter which of the two
+messages (embed, file) a moderator or Discord itself removes, without needlessly re-posting the
+half that is still fine.
+
+\note{
+There is no local file storage in this build. \texttt{file\_url} is a Discord CDN URL captured at
+upload time, so "re-posting a file" simply re-sends that same CDN link as a fresh attachment.
+}
+
+\newpage
+% ============================================================
+\chapter{Live Rendering Helpers (utils.js)}
+% ============================================================
+
+\file{utils.js} centralizes the two pieces of Discord UI that more than one command or event needs
+to rebuild: the leaderboard embed and the live challenge post. Both \file{ready.js} and several
+admin commands import from here rather than duplicating embed-construction logic.
+
+\section{generateLeaderboardEmbed(allScores, page) / getLeaderboardButtons(page, maxPages)}
+
+Pure functions: given an already-sorted array of score documents and a zero-based page, they
+return an \texttt{EmbedBuilder} (10 entries per page, medal emoji for \#1--\#3) and an
+\texttt{ActionRowBuilder} with Prev/Next buttons disabled at the boundaries.
+
+\section{updateLeaderboard(client)}
+
+\begin{enumerate}
+    \item Aggregates every \texttt{Score} document, joining against \texttt{solves} to compute
+          each player's earliest-or-latest solve timestamp for tie-breaking, sorted by points
+          descending.
+    \item If \texttt{channel\_leaderboard} is configured, edits the existing
+          \texttt{msg\_leaderboard} message in place (or sends and records a new one if none
+          exists) with the Top 10 embed and pagination buttons.
+    \item \textbf{Championship handoff:} compares the top scorer's \texttt{user\_id} against
+          \texttt{current\_champion\_id}. On a change, it updates the stored champion, announces
+          "\textbf{NEW KING}" in the \texttt{channel\_general} channel, strips
+          \texttt{role\_champion} from every member currently holding it guild-wide, and grants it
+          to the new \#1.
+\end{enumerate}
+
+\texttt{updateLeaderboard()} is called after every event that can move the \#1 position: a correct
+flag submission, a hint purchase, \cmd{/setup}, and \cmd{/wipe\_all}.
+
+\section{updateChallengePost(client, challenge\_id)}
+
+Re-renders a single live challenge embed in place: refreshes the countdown/expired state, the
+First Blood field (earliest \texttt{Solve} for that challenge), the image/footer, and rebuilds its
+button row --- Submit + Hints while active. Once past \texttt{end\_time}, the Submit Flag button is changed
+to a disabled "Time Expired" button, while the active Hints and Solves buttons remain available. Called after a correct submission and by hint-management commands that
+change whether the Hints button should be shown.
+
+\begin{diagram}{Diagram 6.1 --- Dynamic Promotion Flow}
+    [node distance=1.8cm]
+    \node (solve)  [ok]                                   {Flag Captured \\ (Modal Submit)};
+    \node (add)    [block,    right=2.2cm of solve]        {Award Points \\ via \$inc};
+    \node (scan)   [decision, below=2.2cm of add]          {Score >= \\ RoleReward.points?};
+    \node (grant)  [ok,       left=1.8cm of scan]         {member.roles.add() \\ for that role};
+    \node (noop)   [block,    right=1.8cm of scan]         {No Action};
+    \node (lb)     [block,    below=1.8cm of grant]        {updateLeaderboard() \\ + updateChallengePost()};
+
+    \draw [arrowgreen] (solve) -- (add);
+    \draw [arrowcyan]  (add)   -- (scan);
+    \draw [arrowgreen] (scan)  -- node[above, font=\tiny]{Yes} (grant);
+    \draw [arrow]      (scan)  -- node[above, font=\tiny]{No}  (noop);
+    \draw [arrowcyan]  (grant) -- (lb);
+\end{diagram}
+
+\newpage
+% ============================================================
+\chapter{Hidden Users}
+% ============================================================
+
+The \texttt{hidden\_users} config key stores an array of Discord user IDs that should be excluded
+from the competition's public record --- intended for administrators or testers who need to
+verify a challenge without affecting standings.
+
+While a user is hidden:
+
+\begin{itemize}
+    \item A correct flag submission confirms success but writes \textbf{no} \texttt{Solve} record,
+          changes \textbf{no} score, and posts \textbf{no} message to the challenge-logs or
+          wrong-submissions channels.
+    \item Every hint for a challenge is shown as already unlocked, regardless of cost, with no
+          \texttt{UnlockedHint} record created and no points deducted.
+\end{itemize}
+
+Managed by two admin commands, \cmd{/hide\_user} and \cmd{/unhide\_user} (Chapter~10), both of
+which read-modify-write the \texttt{hidden\_users} array and mirror the action to the admin-logs
+channel if one is configured.
+
+% ============================================================
+\chapter{Player Commands}
+% ============================================================
+
+\section{/profile}
+
+\texttt{commands/player/profile.js} accepts an optional \param{agent} mention (defaults to the
+invoking user). The command:
+
+\begin{enumerate}
+    \item Special-cases the bot's own user ID as an Easter Egg (see Chapter~11) with a hardcoded
+          payload, bypassing the database entirely.
+    \item Otherwise, computes the target's \texttt{points} from \texttt{Score}, their numeric rank
+          (count of players with a strictly higher score, plus one), their solve count, the next
+          unmet \texttt{RoleReward} threshold, the highest \texttt{RoleReward} threshold they have
+          already met (resolved to that Discord role's display name, defaulting to
+          \texttt{"RECRUIT"} if none), and the categories of their three most recent solves.
+    \item Spawns \file{python\_scripts/draw\_profile.py} as a child process (\texttt{python3} on
+          non-Windows, \texttt{python} on Windows) with a hard \textbf{15-second timeout}, streams
+          the payload to it as JSON over \texttt{stdin}, and waits for it to write a PNG to a
+          uniquely-named temp file.
+    \item On success, attaches and sends the PNG, then deletes the temp file. On failure (missing
+          Python, non-zero exit code, or no output file), replies with a diagnostic error.
+\end{enumerate}
+
+\note{\cmd{/profile} carries \textbf{no cooldown}. Rendering is fully delegated to a short-lived
+child process, so there is no in-process thread-pool contention to protect against.}
+
+\section{/leaderboard}
+
+Deferred-then-edited ephemeral embed (10 players per page) with Previous/Next buttons backed by a
+\textbf{5-minute message-component collector} that is detached (buttons cleared) once it expires.
+Sorted by points descending with solve-timestamp tie-breaking via a MongoDB aggregation pipeline
+identical to the one in \texttt{updateLeaderboard()}.
+
+\note{\cmd{/leaderboard} has a \textbf{30-second per-user cooldown}, enforced in
+\texttt{interactionCreate.js} before the command handler ever runs. There is no administrator
+bypass.}
+
+\section{/help}
+
+Generates the complete command reference inline as an embed. Every user sees the "Agent
+Operations" field (\cmd{/profile}, \cmd{/leaderboard}, \cmd{/about}, \cmd{/help}, flag submission,
+hint purchase). If the invoking member has the Discord \textbf{Administrator} permission, three
+additional embed fields are appended --- System \& Rank Setup, Mission Control, and Maintenance \&
+Recovery --- covering every admin command described in Chapter~10. Non-admins never see these
+fields. Always ephemeral.
+
+\section{/about}
+
+Displays hardcoded development credits via absolute Discord user-ID mentions, a static
+\texttt{CORE ENGINE} block, and a live \texttt{SATELLITE UPLINK} field showing the bot's real-time
+WebSocket ping (\texttt{interaction.client.ws.ping}). Ephemeral, no database access.
+
+\newpage
+% ============================================================
+\chapter{Hint Economy \& Collusion Detection}
+% ============================================================
+
+\section{Hints}
+
+\begin{itemize}
+    \item Hints for a challenge are listed via the \textbf{Hints} button on its mission embed;
+          locked hints render a per-hint \textbf{Buy} button showing its point cost.
+    \item Purchasing (\texttt{buy\_hint}) deducts the cost from the buyer's \texttt{Score} and
+          creates an \texttt{UnlockedHint} record, then immediately calls
+          \texttt{updateLeaderboard()} since spending points can change standings.
+    \item \textbf{Expired Challenge Hint Confirmation:} If a player attempts to buy a hint on a
+          challenge that has already expired, the bot prompts them with an ephemeral confirmation
+          dialog warning that the purchase is final and will not be refunded unless the challenge or
+          hint is deleted by an administrator. The purchase is only executed if the user selects
+          \texttt{Confirm Purchase}.
+    \item \cmd{/add\_hint} attaches a new hint and refreshes the live challenge post so its Hints
+          button appears if this was the challenge's first hint.
+    \item \cmd{/remove\_hint} deletes a hint by its 1-based display index and refunds every buyer
+          of that hint automatically, then refreshes both the live post and (if a refund happened)
+          the leaderboard.
+    \item \cmd{/delete} refunds every hint purchase for a challenge before purging it entirely.
+\end{itemize}
+
+\section{Collusion Detection}
+
+If a challenge's most recently recorded solve happened within \textbf{60 seconds} of the current
+solve and belongs to a different user, a \textbf{POSSIBLE COLLUSION ALERT} naming both users is
+posted to the challenge-logs channel. The solve is still recorded normally; the alert exists purely
+for admin review and does not block or penalize the submission.
+
+% ============================================================
+\chapter{The Dossier Profile System}
+% ============================================================
+
+Each Agent profile is a procedurally rendered \textbf{1800$\times$700} dossier card generated by
+\file{python\_scripts/draw\_profile.py} using \textbf{Pillow (PIL)}. Node.js spawns this script as
+a child process, streams the player's stats to it as JSON over \texttt{stdin}, and attaches the
+resulting PNG once the process exits successfully.
+
+\section{Profile Card Anatomy}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{3.5cm} p{9.5cm}}
+\toprule
+Zone & Content \\
+\midrule
+Top-left strip  & \texttt{ID\_REF} (Discord user ID) and \texttt{STATUS: ACTIVE\_OPERATIVE} \\
+Left panel      & Circular avatar (or an initial-letter placeholder if the avatar fails to
+                   download) inside a rank-coloured ring, with a faint rotated "CLASSIFIED" stamp
+                   behind it \\
+Centre-top      & Agent display name (auto-shrinking font so long names still fit) and a
+                   diamond-icon rank badge (\texttt{CHAMPION}/\texttt{VANGUARD}/etc.) \\
+Top-right HUD   & Specialization tags: categories of the last 3 solves, each individually coloured \\
+Stat boxes      & Three clipped-corner boxes: \texttt{RANK}, \texttt{SCORE}, \texttt{FLAGS} \\
+Bottom-left     & Clearance badge showing the highest \texttt{RoleReward} role name the player has
+                   actually earned \\
+Bottom-right    & A progress bar toward the next point threshold, or a "MAX CLEARANCE LEVEL
+                   ATTAINED" banner once no further \texttt{RoleReward} exists above the player \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Rank Themes}
+
+The renderer derives an accent colour purely from the numeric rank string it is given (and from
+whether \texttt{points == 999999}, the Easter Egg sentinel):
+
+\begin{center}
+\begin{tabular}{l l l p{4.5cm}}
+\toprule
+\textbf{Condition} & \textbf{Badge} & \textbf{Accent} & \textbf{Notes} \\
+\midrule
+Easter Egg (bot profile) & SYSTEM CORE & Green    & Distinct dark-blue background, infinity glyphs \\
+\#1 on leaderboard        & CHAMPION    & Gold      & Full gold borders, ring, progress bar \\
+\#2                       & VANGUARD    & Platinum  & Silver-white accents \\
+\#3                       & CHALLENGER  & Bronze    & Bronze accents \\
+\#4--\#10                 & SENTINEL    & Crimson   & Red-alert theme \\
+Other ranked players      & OPERATIVE   & Teal      & Standard operative \\
+0 points                  & RECRUIT     & Gray      & Neutral, no progress colour \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Specialization Tags}
+
+\begin{center}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Category} & \textbf{Tag} & \textbf{Colour} \\
+\midrule
+WEB       & WEB & Cyan    \\
+CRYPTO    & CRY & Yellow  \\
+PWN       & PWN & Red     \\
+REV       & REV & Purple  \\
+FORENSICS & FOR & Green   \\
+OSINT     & OSI & Orange  \\
+MISC      & MSC & White   \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Unrecognized categories fall back to the first three letters of the category string in grey.
+
+\section{The Architect Easter Egg}
+
+Running \cmd{/profile agent:@CyberBOT} short-circuits the normal database lookup entirely: rather
+than querying \texttt{Score}/\texttt{Solve}, \file{profile.js} constructs a hardcoded payload the
+moment it detects that the target user's ID matches the bot's own ID.
+
+\begin{center}
+\begin{tabular}{l l}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+Rank           & \texttt{OVERSEER} (rendered as \texttt{[ROOT]} in the RANK stat box) \\
+Score          & 999999 (rendered as $\infty$ or, in the RANK/FLAGS boxes, \texttt{[ROOT]}/\texttt{KERNEL}) \\
+Flags          & \texttt{KERNEL} \\
+Bottom banner  & \texttt{ARCHITECT OF THE SIMULATION} \\
+Role tag       & \texttt{SYSTEM OVERSEER} \\
+Spec tags      & \texttt{SYS}, \texttt{SQL}, \texttt{ENC} (custom colours, not the standard category palette) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+% ============================================================
+\chapter{Administration Reference}
+% ============================================================
+
+All eighteen admin commands live in \file{commands/admin/} and declare
+\texttt{.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)}, so Discord itself hides
+them from non-administrators in the slash-command picker. Commands marked \textbf{Logged} below
+also mirror a one-line summary to the \texttt{channel\_admin\_logs} channel, if one has been
+configured via \cmd{/setup}.
+
+\section{Mission Control}
+
+\begin{description}[leftmargin=0pt, itemsep=0.4em]
+    \item[\cmd{/create} \param{challenge\_id flag\_text points category} [\param{image\_url}]]
+    Registers a challenge in draft mode, invisible to players until \cmd{/post}. \param{challenge\_id}
+    must match \texttt{[a-zA-Z0-9\_-]+} and must not already exist. \param{category} is a fixed
+    dropdown: \texttt{WEB}, \texttt{CRYPTO}, \texttt{PWN}, \texttt{REV}, \texttt{FORENSICS},
+    \texttt{OSINT}, \texttt{MISC}.
+
+    \item[\cmd{/post} \param{challenge\_id start\_time end\_time} [\param{channel description
+    connection\_info file}]]
+    Publishes an existing draft. Times use \texttt{DD/MM HH:MM}; a past \param{start\_time} posts
+    immediately, a future one is picked up by the scheduler in the next 60-second tick. Writes
+    \param{description}/\param{connection\_info}/\param{file\_url}/\param{channel\_id} onto the
+    \texttt{Flag} document and resets \texttt{msg\_id} to \texttt{null} so the post is (re)created.
+
+    \item[\cmd{/edit} \param{challenge\_id} [\param{points flag\_text category image\_url
+    description connection\_info start\_time end\_time}]]
+    Updates any subset of the listed fields on an existing challenge and, if it is already live,
+    edits the embed in place --- preserving the existing First Blood field rather than resetting
+    it to "Waiting...".
+
+    \item[\cmd{/delete} \param{challenge\_id confirm="YES"}] \textbf{Logged.}
+    Requires the literal string \texttt{YES} in \param{confirm}. Deducts \texttt{points\_awarded}
+    (or a recomputed base+bonus for legacy solves) from every solver, refunds every hint buyer,
+    deletes the live embed and file messages from Discord, then removes the \texttt{Flag} document
+    itself.
+
+    \item[\cmd{/list}]
+    Ephemeral embed listing every challenge's ID, points, and category.
+
+    \item[\cmd{/show} \param{challenge\_id}]
+    Ephemeral embed revealing the plaintext flag, description, connection info, schedule
+    (posted/start/end), and the stored channel/message/file IDs for a challenge.
+
+    \item[\cmd{/add\_hint} \param{challenge\_id hint\_text cost}]
+    Attaches a purchasable hint to an existing challenge; the live embed's button row updates
+    automatically if this was the challenge's first hint.
+
+    \item[\cmd{/remove\_hint} \param{challenge\_id hint\_index}]
+    Removes a hint by its 1-based index and automatically refunds every buyer.
+\end{description}
+
+\begin{diagram}{Diagram 10.1 --- Mission Lifecycle}
+    [node distance=2cm]
+    \node (create) [block]                                {\cmd{/create} Draft};
+    \node (post)   [ok,     right=2.5cm of create]        {\cmd{/post} Live};
+    \node (expire) [danger, right=2.5cm of post]          {Expired \\ (end\_time)};
+    \node (edit)   [block,  below left=2.4cm of post]          {\cmd{/edit} Modified};
+    \node (delete) [danger, below=1.8cm of expire]        {\cmd{/delete} Purged \\ (confirm="YES")};
+
+    \draw [arrowcyan] (create) -- (post);
+    \draw [arrowred]  (post)   -- (expire);
+    \draw [arrowcyan] (post)   -- (edit);
+    \draw [arrowcyan] (edit)   -- (post);
+    \draw [arrowred]  (expire) -- (delete);
+    \draw [arrowred]  (post)   |- (delete);
+\end{diagram}
+
+\newpage
+\section{Player Management}
+
+\begin{description}[leftmargin=0pt, itemsep=0.4em]
+    \item[\cmd{/revoke} \param{user challenge\_id confirm="YES"}] \textbf{Logged.}
+    Removes a solve, deducts its exact \texttt{points\_awarded} (or a recomputed value for legacy
+    records), and \textbf{auto-shifts} First Blood/Silver/Bronze bonuses to every solver who came
+    after the revoked one --- each later solver's bonus is recalculated as if the revoked solve had
+    never happened, and both their \texttt{Score} and stored \texttt{points\_awarded} are adjusted
+    by the difference.
+
+    \item[\cmd{/ban\_user} \param{user}] \textbf{Logged.}
+    Adds the user to \texttt{Banlist}. Banned users are rejected on every slash command and on the
+    Submit Flag button.
+
+    \item[\cmd{/unban\_user} \param{user}] \textbf{Logged.}
+    Removes the user from \texttt{Banlist}.
+
+    \item[\cmd{/hide\_user} \param{user}] \textbf{Logged.}
+    Adds the user's ID to the \texttt{hidden\_users} config array (Chapter~8).
+
+    \item[\cmd{/unhide\_user} \param{user}] \textbf{Logged.}
+    Removes the user's ID from \texttt{hidden\_users}, restoring normal scoring and logging.
+\end{description}
+
+\section{System \& Maintenance}
+
+\begin{description}[leftmargin=0pt, itemsep=0.4em]
+    \item[\cmd{/setup} [\param{leaderboard\_channel challenge\_logs wrong\_submissions
+    general\_channel champion\_role channel\_admin\_logs}]]
+    Writes whichever of the six optional options were supplied to their corresponding
+    \texttt{Config} keys, then calls \texttt{updateLeaderboard()}. Purely additive --- omitted
+    options leave existing settings untouched.
+
+    \item[\cmd{/set\_rank\_role} \param{role points}]
+    Upserts a \texttt{RoleReward} document keyed by \texttt{role\_id}, defining an auto-promotion
+    milestone.
+
+    \item[\cmd{/remove\_rank\_role} \param{role}]
+    Deletes a \texttt{RoleReward} by \texttt{role\_id}.
+
+    \item[\cmd{/list\_rank\_roles}]
+    Ephemeral embed of every configured role/threshold pair, ascending by points.
+
+    \item[\cmd{/export}]
+    Assembles every Mongoose collection (\texttt{flags}, \texttt{roleRewards}, \texttt{scores},
+    \texttt{solves}, \texttt{banlists}, \texttt{hints}, \texttt{configs}, \texttt{unlockedHints})
+    into a single JSON object and uploads it as an ephemeral attachment named
+    \file{CyberBOT\_backup\_<timestamp>.json}, visible only to the invoking administrator.
+
+    \item[\cmd{/import} \param{backup\_file}]
+    Fetches the uploaded \texttt{.json} file from Discord's CDN and, for each top-level key present
+    in it, wipes the corresponding collection with \texttt{deleteMany(\{\})} and re-inserts the
+    supplied documents with \texttt{insertMany()}. Only \texttt{.json}-extension attachments are
+    accepted --- rejected before the file is even fetched. A collection key that is \emph{absent}
+    from the uploaded file is left completely untouched.
+
+    \item[\cmd{/reset\_config}] \textbf{Logged.}
+    Deletes \textbf{every} document in the \texttt{Config} collection --- not just channel or role
+    settings. This clears all channel links, the champion role, the current-champion pointer, and
+    the \texttt{hidden\_users} list in one call, while leaving \texttt{Flag}, \texttt{Score}, and
+    \texttt{Solve} data (i.e. all player progress) untouched. Re-run \cmd{/setup} and
+    \cmd{/hide\_user} afterward to restore configuration.
+\end{description}
+
+\warning{
+    \cmd{/wipe\_all} opens a \textbf{Discord Modal} immediately. The administrator must type
+    \texttt{CONFIRM WIPE} exactly (12 characters, enforced by \texttt{setMinLength}/\texttt{setMaxLength})
+    and submit within 60 seconds. Any other phrase, or letting the modal time out, aborts the
+    operation with no data loss. On success it deletes \textbf{every} collection
+    (\texttt{Flag}, \texttt{Score}, \texttt{Solve}, \texttt{Banlist}, \texttt{RoleReward},
+    \texttt{Config}, \texttt{Hint}, \texttt{UnlockedHint}), logs the action first if an admin-logs
+    channel is configured, and finally calls \texttt{updateLeaderboard()} to clear the live
+    leaderboard post. \textbf{Always run \cmd{/export} first.}
+}
+
+\begin{diagram}{Diagram 10.2 --- Recursive Delete \& Refund Flow}
+    [node distance=1.6cm]
+    \node (cmd)     [danger]                                    {\cmd{/delete} \\ confirm="YES"};
+    \node (solvers) [decision, right=2.5cm of cmd]              {Any \\ solvers?};
+    \node (deduct)  [danger,   right=2cm of solvers]            {Deduct \\ points\_awarded};
+    \node (hints)   [decision, below=2cm of solvers]            {Any hint \\ buyers?};
+    \node (refund)  [ok,       left=2cm of hints]              {Refund Hint \\ Costs};
+    \node (purge)   [danger,   below=1.8cm of hints]            {Delete Discord \\ msg + file msg};
+    \node (log)     [block,    right=2cm of purge]              {Post to \\ Admin Logs};
+
+    \draw [arrowred]   (cmd)     -- (solvers);
+    \draw [arrowred]   (solvers) -- node[above, font=\tiny]{Yes} (deduct);
+    \draw [arrowcyan]  (solvers) -- node[right, font=\tiny]{No}  (hints);
+    \draw [arrowcyan]  (deduct)  |- (hints);
+    \draw [arrowgreen] (hints)   -- node[above, font=\tiny]{Yes} (refund);
+    \draw [arrowcyan]  (hints)   -- node[right, font=\tiny]{No}  (purge);
+    \draw [arrowcyan]  (refund)  |- (purge);
+    \draw [arrowcyan]  (purge)   -- (log);
+\end{diagram}
+
+\newpage
+% ============================================================
+\chapter{Championship Belt Logic}
+% ============================================================
+
+The championship check runs \textbf{inline} inside \texttt{updateLeaderboard()} in
+\file{utils.js}, which is invoked after every event that can change the \#1 position: a correct
+flag submission, a hint purchase, \cmd{/setup}, and \cmd{/wipe\_all}.
+
+\begin{enumerate}
+    \item Aggregate all \texttt{Score} documents, sorted by points descending and earliest/latest
+          solve timestamp ascending (via a \texttt{\$lookup} into \texttt{solves}).
+    \item Compare the top scorer's \texttt{user\_id} against \texttt{Config.current\_champion\_id}.
+    \item If it changed: update \texttt{current\_champion\_id}, broadcast a \textbf{NEW KING} alert
+          to the general channel, strip the champion role from every current holder guild-wide,
+          and grant it to the new leader.
+\end{enumerate}
+
+\note{
+Role removal/grant failures (missing permissions, deleted role, etc.) are individually caught and
+silently ignored per-member so that one failure cannot abort the handoff for everyone else.
+}
+
+% ============================================================
+\chapter{Guild Lock \& Operational Security}
+% ============================================================
+
+\file{events/guildCreate.js} enforces a hard single-server lock: CyberBOT is intended to run for
+exactly one authorized SGCTF Discord server.
+
+\begin{diagram}{Diagram 12.1 --- Guild Lock Flow}
+    [node distance=2cm]
+    \node (join)   [gold]                                    {Bot added \\ to a server};
+    \node (check)  [decision, right=2.5cm of join]           {guild.id == \\ GUILD\_ID?};
+    \node (stay)   [ok,       above=1.8cm of check]          {Remain in \\ server};
+    \node (dm)     [danger,   below=1.8cm of check]          {DM the \\ server owner};
+    \node (leave)  [danger,   right=2.2cm of dm]             {guild.leave()};
+
+    \draw [arrowgold]  (join)  -- (check);
+    \draw [arrowgreen] (check) -- node[above, font=\tiny]{Yes} (stay);
+    \draw [arrowred]   (check) -- node[right, font=\tiny]{No}  (dm);
+    \draw [arrowred]   (dm)    -- (leave);
+\end{diagram}
+
+When the bot is added to any server whose ID does not match \texttt{process.env.GUILD\_ID}, it
+attempts to DM the server owner explaining that it is private and locked, then calls
+\texttt{guild.leave()} regardless of whether the DM succeeded (DM failures are caught and logged,
+not fatal). This makes the bot effectively non-transferable without editing its \file{.env} file,
+protecting against accidental invites and unauthorized re-deployment of a leaked bot token.
+
+\newpage
+% ============================================================
+\chapter{Database Backup \& Recovery}
+% ============================================================
+
+\section{Export}
+
+Run \cmd{/export} at any time. The bot assembles every Mongoose collection into one JSON object and
+sends it as a private Discord file attachment (\file{CyberBOT\_backup\_<timestamp>.json}), visible
+only to the invoking administrator.
+
+\section{Import}
+
+\begin{diagram}{Diagram 13.1 --- JSON Import Flow}
+    [node distance=1.7cm]
+    \node (cmd)    [gold]                                   {\cmd{/import} backup\_file};
+    \node (fetch)  [block,  right=2.2cm of cmd]             {Fetch JSON \\ from Discord CDN};
+    \node (loop)   [block,  right=2.2cm of fetch]           {For each \\ collection present};
+    \node (wipe)   [danger, below=1.8cm of loop]            {deleteMany({})};
+    \node (insert) [ok,     left=1.8cm of wipe]           {insertMany(data)};
+    \node (done)   [block,  below=1.8cm of cmd]             {Reply: \\ import complete};
+
+    \draw [arrowgold]  (cmd)    -- (fetch);
+    \draw [arrowcyan]  (fetch)  -- (loop);
+    \draw [arrowred]   (loop)   -- (wipe);
+    \draw [arrowcyan]  (wipe)   -- (insert);
+    \draw [arrowcyan]  (insert) -| ++(-3.6,0) |- (done);
+\end{diagram}
+
+\warning{
+Import overwrites every collection \textbf{present in the uploaded JSON} with no automatic backup
+step first. Always run \cmd{/export} before importing. Only \texttt{.json} files are accepted; any
+other extension is rejected before the file is even fetched.
+}
+
+\section{Recommended Backup Schedule}
+
+\begin{itemize}
+    \item \textbf{Before each event} --- pre-event snapshot.
+    \item \textbf{After each event ends} --- final standings preserved.
+    \item \textbf{Before \cmd{/wipe\_all} or \cmd{/reset\_config}} --- end-of-season archive.
+\end{itemize}
+
+\section{Quick Command Index}
+
+\begin{longtable}{>{\ttfamily}l p{9.5cm}}
+\toprule
+\textbf{Command} & \textbf{One-line summary} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Command} & \textbf{One-line summary} \\
+\midrule
+\endhead
+/profile [agent]      & Render an agent's dossier card (or the Architect Easter Egg for the bot itself). \\
+/leaderboard           & Paginated global standings, 30s cooldown. \\
+/help                  & Full command reference; admins see extra sections. \\
+/about                 & System specs, credits, live ping. \\
+/create                & Register a draft challenge. \\
+/post                  & Publish or schedule a challenge. \\
+/edit                  & Modify an existing challenge's fields. \\
+/delete                & Purge a challenge with recursive refunds. \\
+/list                  & List all challenges. \\
+/show                  & Reveal full internal details of a challenge, including the flag. \\
+/add\_hint             & Attach a purchasable hint. \\
+/remove\_hint          & Remove a hint and refund its buyers. \\
+/revoke                & Remove a solve, deduct points, auto-shift bonuses. \\
+/ban\_user             & Block a user from submissions and hint purchases. \\
+/unban\_user           & Restore a banned user's access. \\
+/hide\_user            & Exclude a user from scoring and logging. \\
+/unhide\_user          & Restore normal scoring and logging for a user. \\
+/setup                 & Configure channels and the champion role. \\
+/set\_rank\_role       & Define an auto-promotion point threshold. \\
+/remove\_rank\_role    & Remove a rank-role threshold. \\
+/list\_rank\_roles     & List configured thresholds. \\
+/export                & Download a full JSON database backup. \\
+/import                & Overwrite the database from a JSON backup. \\
+/reset\_config         & Wipe all Config entries (channels, roles, hidden users). \\
+/wipe\_all             & Modal-confirmed full data purge. \\
+\bottomrule
+\end{longtable}
+
+\vspace{1cm}
+\begin{center}
+\begin{tcolorbox}[colback=cyberdark, coltext=white, colframe=cybergold,
+                  width=13cm, center]
+    \centering\color{cybergold}
+    \large\textbf{--- END OF MANUAL ---}\\[0.3cm]
+    \color{cybercyan}\small CyberBOT $\cdot$ Codebase Reference Edition $\cdot$ SGCTF Network Command $\cdot$ \today\\[0.2cm]
+    \color{white!50}\footnotesize ARCHITECT OF THE SIMULATION
+\end{tcolorbox}
+\end{center}
+
+\end{document}
