@@ -49,7 +49,7 @@ module.exports = {
                 try {
                     const lbChannel = await interaction.client.channels.fetch(lbChannelConf.value);
                     if (lbChannel) {
-                        const top10Embed = generateEmbed(0).setFooter({ text: 'Auto-updating Top 10' });
+                        const top10Embed = generateLeaderboardEmbed(allScores, 0).setFooter({ text: 'Auto-updating Top 10' });
                         let msg;
                         if (lbMsgConf && lbMsgConf.value) {
                             try { msg = await lbChannel.messages.fetch(lbMsgConf.value); } catch(e){}
