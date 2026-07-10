@@ -647,6 +647,14 @@ This three-way split is what lets the watchdog recover correctly no matter which
 messages (embed, file) a moderator or Discord itself removes, without needlessly re-posting the
 half that is still fine.
 
+\section{Pass 3 --- Persistent Leaderboard Recovery}
+
+If the persistent leaderboard channel (\texttt{channel\_leaderboard}) is configured, the watchdog
+attempts to fetch the active leaderboard message (\texttt{msg\_leaderboard}) on every tick.
+If this message is found to have been deleted or is missing, the watchdog automatically calls
+\texttt{updateLeaderboard()} to re-generate the global standings post, send it to the channel,
+and update the stored message ID in the database.
+
 \note{
 There is no local file storage in this build. \texttt{file\_url} is a Discord CDN URL captured at
 upload time, so "re-posting a file" simply re-sends that same CDN link as a fresh attachment.

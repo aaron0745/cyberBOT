@@ -100,6 +100,9 @@ module.exports = {
                 }
             }
 
+            const { updateLeaderboard } = require('../../utils');
+            await updateLeaderboard(interaction.client);
+ 
             await interaction.editReply({ content: `✅ Challenge \`${challengeId}\` has been deleted successfully. Points and hints refunded.` });
         } catch (error) {
             console.error(error);

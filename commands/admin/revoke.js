@@ -78,6 +78,10 @@ module.exports = {
                 }
             }
 
+            const { updateLeaderboard, updateChallengePost } = require('../../utils');
+            await updateLeaderboard(interaction.client);
+            await updateChallengePost(interaction.client, challenge_id);
+ 
             await interaction.reply({ content: `🚨 **REVOKED!** Removed solve for **${challenge_id}** from ${user.tag}.\n🔻 Deducted **${totalDeduction} points** (Base: ${flag.points} + Bonus: ${userBonus}).\n⬆️ System auto-shifted bonuses to subsequent solvers.`, flags: 64 });
 
             const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });

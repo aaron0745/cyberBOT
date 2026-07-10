@@ -158,6 +158,30 @@ module.exports = {
                         }
                     }
                 }
+
+                // 3. Persistent Leaderboard Recovery Watchdog
+                const lbChannelConf = await Models.Config.findOne({ key: 'channel_leaderboard' });
+                const lbMsgConf = await Models.Config.findOne({ key: 'msg_leaderboard' });
+                if (lbChannelConf && lbChannelConf.value) {
+                    try {
+                        const lbChannel = client.channels.cache.get(lbChannelConf.value);
+                        if (lbChannel) {
+                            let lbMsg = null;
+                            if (lbMsgConf && lbMsgConf.value) {
+                                try {
+                                    lbMsg = await lbChannel.messages.fetch(lbMsgConf.value);
+                                } catch (e) {}
+                            }
+                            if (!lbMsg) {
+                                console.log("🔍 Leaderboard message missing. Recreating...");
+                                const { updateLeaderboard } = require('../utils');
+                                await updateLeaderboard(client);
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Leaderboard watchdog error:", e);
+                    }
+                }
             } catch (err) {
                 console.error("Watchdog loop error:", err);
             }
