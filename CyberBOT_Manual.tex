@@ -583,9 +583,10 @@ log fires for hidden users.
 % ============================================================
 
 On \texttt{ClientReady}, \file{ready.js} sets an initial presence, starts a 150-second interval
-that alternates the bot's activity text between two phrases, and --- most importantly --- starts a
-single \textbf{30-second \texttt{setInterval}} that performs both scheduled posting and
-anti-deletion recovery in one pass. There is only one interval; both jobs share it.
+that alternates the bot's activity text between two phrases, and --- most importantly --- calculates
+the exact millisecond offset until the next minute ticks over. Exactly one second after the minute boundary
+(\texttt{XX:XX:01}), it executes the first background check and starts a 60-second interval to check for both
+scheduled posting and anti-deletion recovery in one pass.
 
 \begin{diagram}{Diagram 5.1 --- Unified Background Loop}
     [node distance=2.3cm]

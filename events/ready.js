@@ -27,7 +27,7 @@ module.exports = {
         }, 150000);
 
         // --- BACKGROUND WATCHDOG ---
-        setInterval(async () => {
+        const runWatchdog = async () => {
             try {
                 const now = Math.floor(Date.now() / 1000);
                 
@@ -161,6 +161,16 @@ module.exports = {
             } catch (err) {
                 console.error("Watchdog loop error:", err);
             }
-        }, 30000); // Check every 30 seconds
+        };
+
+        // Align execution to the first second of the next minute
+        const nowTime = new Date();
+        const msUntilNextMinute = (60 - nowTime.getSeconds()) * 1000 - nowTime.getMilliseconds();
+        const delay = msUntilNextMinute + 1000; // Add 1 second offset to guarantee crossing the minute boundary
+
+        setTimeout(() => {
+            runWatchdog();
+            setInterval(runWatchdog, 60000); // Check every 60 seconds
+        }, delay);
     },
 };
