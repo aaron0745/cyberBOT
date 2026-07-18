@@ -6,7 +6,7 @@ module.exports = {
         .setName('revoke')
         .setDescription('Remove a solve and deduct points')
         .addUserOption(option => option.setName('user').setDescription('The user').setRequired(true))
-        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true))
+        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true).setAutocomplete(true))
         .addStringOption(option => option.setName('confirm').setDescription("Type 'YES' to confirm").setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {

@@ -17,6 +17,22 @@ setInterval(() => {
 module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction, client) {
+        // --- AUTOCOMPLETE HANDLER ---
+        if (interaction.isAutocomplete()) {
+            const focusedValue = interaction.options.getFocused();
+            try {
+                const challenges = await Models.Flag.find({ 
+                    challenge_id: { $regex: focusedValue, $options: 'i' } 
+                }).limit(25);
+                await interaction.respond(
+                    challenges.map(c => ({ name: c.challenge_id, value: c.challenge_id }))
+                );
+            } catch (e) {
+                console.error('Autocomplete query error:', e);
+            }
+            return;
+        }
+
         // --- SLASH COMMANDS ---
         if (interaction.isChatInputCommand()) {
             // Check banlist

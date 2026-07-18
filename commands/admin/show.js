@@ -5,7 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('show')
         .setDescription('Show details for a specific challenge')
-        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true))
+        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true).setAutocomplete(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {
         const challenge_id = interaction.options.getString('challenge_id');

@@ -5,7 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('remove_hint')
         .setDescription('Remove a hint')
-        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true))
+        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true).setAutocomplete(true))
         .addIntegerOption(option => option.setName('hint_index').setDescription('The index of the hint to remove (1-based)').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {

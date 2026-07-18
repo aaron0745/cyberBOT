@@ -8,7 +8,8 @@ module.exports = {
         .addStringOption(option =>
             option.setName('challenge_id')
                 .setDescription('The ID of the challenge to delete')
-                .setRequired(true))
+                .setRequired(true)
+                .setAutocomplete(true))
         .addStringOption(option => option.setName('confirm').setDescription("Type 'YES' to confirm").setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {

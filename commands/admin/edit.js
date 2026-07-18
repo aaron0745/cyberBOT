@@ -5,7 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('edit')
         .setDescription('Edit a challenge')
-        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true))
+        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true).setAutocomplete(true))
         .addIntegerOption(option => option.setName('points').setDescription('New point value').setRequired(false).setMinValue(0))
         .addStringOption(option => option.setName('flag_text').setDescription('New flag text').setRequired(false))
         .addStringOption(option => option.setName('category').setDescription('New category').setRequired(false))
@@ -61,15 +61,26 @@ module.exports = {
                 return await interaction.editReply({ content: `❌ Challenge ${challenge_id} not found.` });
             }
             
+            const oldPoints = flag.points;
+            const oldFlagText = flag.flag_text;
+            const oldCategory = flag.category;
+            const oldImageUrl = flag.image_url;
+            const oldDescription = flag.description;
+            const oldConnectionInfo = flag.connection_info;
+            const oldStartTime = flag.start_time;
+            const oldEndTime = flag.end_time;
+
             let updated = false;
-            if (points !== null) { flag.points = points; updated = true; }
-            if (flag_text !== null) { flag.flag_text = flag_text; updated = true; }
-            if (category !== null) { flag.category = category; updated = true; }
-            if (image_url !== null) { flag.image_url = image_url; updated = true; }
-            if (description !== null) { flag.description = description; updated = true; }
-            if (connection_info !== null) { flag.connection_info = connection_info; updated = true; }
-            if (start_time !== null) { flag.start_time = start_time; updated = true; }
-            if (end_time !== null) { flag.end_time = end_time; updated = true; }
+            const diff = [];
+
+            if (points !== null && points !== oldPoints) { flag.points = points; diff.push(`- **Points:** \`${oldPoints}\` ➡️ \`${points}\``); updated = true; }
+            if (flag_text !== null && flag_text !== oldFlagText) { flag.flag_text = flag_text; diff.push(`- **Flag:** \`[REDACTED]\` ➡️ \`[REDACTED]\``); updated = true; }
+            if (category !== null && category !== oldCategory) { flag.category = category; diff.push(`- **Category:** \`${oldCategory || 'None'}\` ➡️ \`${category}\``); updated = true; }
+            if (image_url !== null && image_url !== oldImageUrl) { flag.image_url = image_url; diff.push(`- **Image URL:** \`${oldImageUrl || 'None'}\` ➡️ \`${image_url}\``); updated = true; }
+            if (description !== null && description !== oldDescription) { flag.description = description; diff.push(`- **Description:** Updated`); updated = true; }
+            if (connection_info !== null && connection_info !== oldConnectionInfo) { flag.connection_info = connection_info; diff.push(`- **Connection Info:** Updated`); updated = true; }
+            if (start_time !== null && start_time !== oldStartTime) { flag.start_time = start_time; diff.push(`- **Start Time:** ${oldStartTime ? `<t:${oldStartTime}:F>` : '`None`'} ➡️ <t:${start_time}:F>`); updated = true; }
+            if (end_time !== null && end_time !== oldEndTime) { flag.end_time = end_time; diff.push(`- **End Time:** ${oldEndTime ? `<t:${oldEndTime}:F>` : '`None`'} ➡️ <t:${end_time}:F>`); updated = true; }
             
             if (updated) {
                 await flag.save();
@@ -120,6 +131,25 @@ module.exports = {
                         }
                     } catch (e) {
                         console.error('Failed to update live Discord message for challenge:', e);
+                    }
+                }
+
+                // Send log to channel_admin_logs
+                const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
+                if (adminLogConfig && diff.length > 0) {
+                    try {
+                        const logChannel = await interaction.client.channels.fetch(adminLogConfig.value);
+                        if (logChannel) {
+                            const { EmbedBuilder } = require('discord.js');
+                            const embed = new EmbedBuilder()
+                                .setTitle(`📝 Challenge Edited: ${challenge_id}`)
+                                .setDescription(`Admin <@${interaction.user.id}> modified the challenge:\n\n${diff.join('\n')}`)
+                                .setColor(0xFFA500)
+                                .setTimestamp();
+                            await logChannel.send({ embeds: [embed] });
+                        }
+                    } catch (e) {
+                        console.error('Error sending edit admin log:', e);
                     }
                 }
 

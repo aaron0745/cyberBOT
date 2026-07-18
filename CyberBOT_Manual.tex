@@ -469,6 +469,13 @@ hidden\_users                & Array of user IDs excluded from scoring, logging,
 Every slash command, button click, and modal submission passes through a single
 \texttt{InteractionCreate} handler. It branches on the interaction type.
 
+\section{Autocomplete Handler}
+
+Before processing commands, the router intercepts autocomplete requests (\texttt{interaction.isAutocomplete()}).
+It queries the MongoDB \texttt{flags} collection for any challenges matching the user's input (case-insensitively)
+and returns up to 25 suggestions. This provides active dropdown selections for any command requiring a
+\param{challenge\_id} option.
+
 \section{Console Logging}
 
 Every interaction (slash command, button click, and modal submission) is parsed and printed to
@@ -957,10 +964,11 @@ configured via \cmd{/setup}.
     \texttt{Flag} document and resets \texttt{msg\_id} to \texttt{null} so the post is (re)created.
 
     \item[\cmd{/edit} \param{challenge\_id} [\param{points flag\_text category image\_url
-    description connection\_info start\_time end\_time}]]
+    description connection\_info start\_time end\_time}]] \textbf{Logged.}
     Updates any subset of the listed fields on an existing challenge and, if it is already live,
-    edits the embed in place --- preserving the existing First Blood field rather than resetting
-    it to "Waiting...".
+    edits the embed in place (preserving the existing First Blood field). It compares the new values with
+    the old values and posts a detailed modification "diff" card to the configured \texttt{channel\_admin\_logs}
+    channel.
 
     \item[\cmd{/delete} \param{challenge\_id confirm="YES"}] \textbf{Logged.}
     Requires the literal string \texttt{YES} in \param{confirm}. Deducts \texttt{points\_awarded}

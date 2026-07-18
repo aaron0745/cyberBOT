@@ -5,7 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('add_hint')
         .setDescription('Add a purchasable hint to a challenge')
-        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true))
+        .addStringOption(option => option.setName('challenge_id').setDescription('The challenge ID').setRequired(true).setAutocomplete(true))
         .addStringOption(option => option.setName('hint_text').setDescription('The hint text').setRequired(true))
         .addIntegerOption(option => option.setName('cost').setDescription('Cost in points (0 for free)').setRequired(true).setMinValue(0))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
