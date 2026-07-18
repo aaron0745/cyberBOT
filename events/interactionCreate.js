@@ -39,6 +39,18 @@ module.exports = {
             const command = client.commands.get(interaction.commandName);
             if (!command) return;
 
+            // Log command execution to Render console
+            const logOptions = (optionsList) => {
+                return optionsList.map(opt => {
+                    if (opt.options) {
+                        return `${opt.name} (${logOptions(opt.options)})`;
+                    }
+                    return `${opt.name}:${opt.value}`;
+                }).join(', ');
+            };
+            const optionsString = logOptions(interaction.options.data);
+            console.log(`[Command Executed] ${interaction.user.tag} (${interaction.user.id}) ran /${interaction.commandName}${optionsString ? ` [options: ${optionsString}]` : ''} in #${interaction.channel?.name || 'DM'}`);
+
             try {
                 await command.execute(interaction);
             } catch (error) {
@@ -55,6 +67,7 @@ module.exports = {
         // --- BUTTON CLICKS ---
         if (interaction.isButton()) {
             const [action, challenge_id] = interaction.customId.split(':');
+            console.log(`[Button Clicked] ${interaction.user.tag} (${interaction.user.id}) clicked button "${interaction.customId}"`);
 
             if (action === 'submit') {
                 // Check banlist
@@ -286,6 +299,7 @@ module.exports = {
         // --- MODAL SUBMISSIONS ---
         if (interaction.isModalSubmit()) {
             const [action, challenge_id] = interaction.customId.split(':');
+            console.log(`[Modal Submitted] ${interaction.user.tag} (${interaction.user.id}) submitted modal "${interaction.customId}"`);
 
             if (action === 'modal_submit') {
                 // Submit Cooldown Check

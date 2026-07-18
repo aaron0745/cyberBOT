@@ -469,6 +469,13 @@ hidden\_users                & Array of user IDs excluded from scoring, logging,
 Every slash command, button click, and modal submission passes through a single
 \texttt{InteractionCreate} handler. It branches on the interaction type.
 
+\section{Console Logging}
+
+Every interaction (slash command, button click, and modal submission) is parsed and printed to
+standard output (\texttt{stdout}). Slash command logs include recursive parsing of any supplied arguments
+and subcommands. This creates a real-time audit trail directly readable from hosting provider web consoles
+(e.g., Render Dashboard logs) for security and operational monitoring.
+
 \section{Cooldown Store}
 
 An in-memory \texttt{Map} named \texttt{cooldowns} tracks two independent per-user rate limits by
