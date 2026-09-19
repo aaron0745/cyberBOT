@@ -85,7 +85,7 @@ module.exports = {
             await interaction.reply({ content: `🚨 **REVOKED!** Removed solve for **${challenge_id}** from ${user.tag}.\n🔻 Deducted **${totalDeduction} points** (Base: ${flag.points} + Bonus: ${userBonus}).\n⬆️ System auto-shifted bonuses to subsequent solvers.`, flags: 64 });
 
             const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
-            if (adminLogConfig) {
+            if (adminLogConfig && adminLogConfig.value) {
                 try {
                     const logChannel = await interaction.client.channels.fetch(adminLogConfig.value);
                     if (logChannel) {

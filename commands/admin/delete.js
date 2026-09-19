@@ -49,13 +49,14 @@ module.exports = {
             // Refund hint purchases
             const hints = await Models.Hint.find({ challenge_id: challengeId });
             for (const hint of hints) {
-                if (hint.cost > 0) {
-                    const unlockedHints = await Models.UnlockedHint.find({ hint_id: hint._id.toString() });
-                    for (const unlocked of unlockedHints) {
-                        await Models.Score.updateOne({ user_id: unlocked.user_id }, { $inc: { points: hint.cost } });
+                const unlockedHints = await Models.UnlockedHint.find({ hint_id: hint._id.toString() });
+                for (const unlocked of unlockedHints) {
+                    const refundAmount = unlocked.cost_paid !== undefined ? unlocked.cost_paid : hint.cost;
+                    if (refundAmount > 0) {
+                        await Models.Score.updateOne({ user_id: unlocked.user_id }, { $inc: { points: refundAmount } });
                     }
-                    await Models.UnlockedHint.deleteMany({ hint_id: hint._id.toString() });
                 }
+                await Models.UnlockedHint.deleteMany({ hint_id: hint._id.toString() });
             }
             await Models.Hint.deleteMany({ challenge_id: challengeId });
 
@@ -90,7 +91,7 @@ module.exports = {
             await Models.Flag.deleteOne({ challenge_id: challengeId });
             
             const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
-            if (adminLogConfig) {
+            if (adminLogConfig && adminLogConfig.value) {
                 try {
                     const logChannel = await interaction.client.channels.fetch(adminLogConfig.value);
                     if (logChannel) {

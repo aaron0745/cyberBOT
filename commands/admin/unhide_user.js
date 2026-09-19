@@ -40,7 +40,7 @@ module.exports = {
 
             // Admin Logs channel notify
             const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
-            if (adminLogConfig) {
+            if (adminLogConfig && adminLogConfig.value) {
                 try {
                     const logChannel = await interaction.client.channels.fetch(adminLogConfig.value);
                     if (logChannel) {

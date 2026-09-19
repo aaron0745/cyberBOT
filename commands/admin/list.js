@@ -16,7 +16,7 @@ module.exports = {
 
             let listString = '';
             for (const challenge of challenges) {
-                listString += `**ID:** ${challenge.challenge_id} | **Points:** ${challenge.points || 0} | **Category:** ${challenge.category || 'N/A'}\n`;
+                listString += `**Challenge Name:** ${challenge.challenge_id} | **Points:** ${challenge.points || 0} | **Category:** ${challenge.category || 'N/A'}\n`;
             }
 
             const embed = new EmbedBuilder()

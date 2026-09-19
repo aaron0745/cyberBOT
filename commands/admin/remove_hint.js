@@ -21,23 +21,26 @@ module.exports = {
             const hintToRemove = hints[index];
             
             // Refund points to users who bought the hint
-            if (hintToRemove.cost > 0) {
-                const unlockedHints = await Models.UnlockedHint.find({ hint_id: hintToRemove._id.toString() });
-                for (const unlocked of unlockedHints) {
+            const unlockedHints = await Models.UnlockedHint.find({ hint_id: hintToRemove._id.toString() });
+            let anyRefunded = false;
+            for (const unlocked of unlockedHints) {
+                const refundAmount = unlocked.cost_paid !== undefined ? unlocked.cost_paid : hintToRemove.cost;
+                if (refundAmount > 0) {
                     await Models.Score.updateOne(
                         { user_id: unlocked.user_id },
-                        { $inc: { points: hintToRemove.cost } }
+                        { $inc: { points: refundAmount } }
                     );
+                    anyRefunded = true;
                 }
-                // Delete all UnlockedHint records for this hint
-                await Models.UnlockedHint.deleteMany({ hint_id: hintToRemove._id.toString() });
             }
+            // Delete all UnlockedHint records for this hint
+            await Models.UnlockedHint.deleteMany({ hint_id: hintToRemove._id.toString() });
 
             await Models.Hint.deleteOne({ _id: hintToRemove._id });
             
             const { updateChallengePost, updateLeaderboard } = require('../../utils');
             await updateChallengePost(interaction.client, challenge_id);
-            if (hintToRemove.cost > 0) {
+            if (anyRefunded) {
                 await updateLeaderboard(interaction.client);
             }
             

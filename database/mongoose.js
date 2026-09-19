@@ -54,7 +54,8 @@ const ConfigSchema = new mongoose.Schema({
 
 const UnlockedHintSchema = new mongoose.Schema({
     user_id: { type: String, required: true },
-    hint_id: { type: String, required: true }
+    hint_id: { type: String, required: true },
+    cost_paid: { type: Number, default: 0 }
 });
 UnlockedHintSchema.index({ user_id: 1, hint_id: 1 }, { unique: true });
 
@@ -89,6 +90,7 @@ async function connectDB() {
         console.log('✅ Connected to MongoDB Atlas');
     } catch (error) {
         console.error('❌ Initial MongoDB Connection Error:', error);
+        throw error;
     }
 }
 

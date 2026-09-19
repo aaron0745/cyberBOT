@@ -424,7 +424,7 @@ Flag           & challenge\_id            & Challenge data: \texttt{flag\_text},
 Score          & user\_id                 & Running point total and cached \texttt{username} per player. \\[0.3cm]
 Solve          & (user\_id, challenge\_id) compound unique index & One row per correct submission; numeric Unix \texttt{timestamp}; stores \texttt{points\_awarded} so revoke/delete can reverse the exact amount later. \\[0.3cm]
 Hint           & \_id (ObjectId)          & Purchasable hints linked to a \texttt{challenge\_id} by string, with a point \texttt{cost}. \\[0.3cm]
-UnlockedHint   & (user\_id, hint\_id) compound unique index & Which players have purchased which hints. \\[0.3cm]
+UnlockedHint   & (user\_id, hint\_id) compound unique index & Which players have unlocked which hints; records \texttt{cost\_paid} so refunds only reimburse points actually spent. \\[0.3cm]
 RoleReward     & role\_id                 & Discord role IDs mapped to point thresholds for auto-promotion. \\[0.3cm]
 Banlist        & user\_id                 & Disqualified players blocked from submissions and hint purchases. \\[0.3cm]
 Config         & key                      & Free-form key/value settings store (see below). \\
@@ -507,8 +507,8 @@ process.
 \textbf{customId prefix} & \textbf{Behaviour} \\
 \midrule
 submit          & Opens the flag-submission modal (banlist-checked first). \\
-hints           & Lists every hint for a challenge; locked hints render a per-hint \texttt{buy\_hint} button showing its cost. Hidden users (Chapter~6) see every hint text unlocked. \\
-buy\_hint        & Deducts the hint's cost from the buyer's score, records an \texttt{UnlockedHint}, and refreshes the leaderboard (spending can change standings). Hidden users get the hint text for free with no record kept. \\
+hints           & Lists every hint for a challenge; locked hints render a per-hint \texttt{buy\_hint} button showing its cost. On expired challenges or for hidden users, all hints are displayed unlocked and free immediately. \\
+buy\_hint        & Deducts the hint's cost from the buyer's score (or 0 if expired), records an \texttt{UnlockedHint} with \texttt{cost\_paid}, and refreshes the leaderboard if points changed. Hidden users get the hint text for free with no record kept. \\
 view\_solves     & Opens a paginated (10-per-page) list of everyone who solved a given challenge, oldest first. \\
 solve\_prev / solve\_next & Page through the solvers list in place via \texttt{interaction.update()}. \\
 lb\_main\_prev / lb\_main\_next & Page through a standalone \cmd{/leaderboard} reply in place. \\
@@ -713,8 +713,7 @@ flag submission, a hint purchase, \cmd{/setup}, and \cmd{/wipe\_all}.
 Re-renders a single live challenge embed in place: refreshes the countdown/expired state, the
 First Blood field (earliest \texttt{Solve} for that challenge), the image/footer, and rebuilds its
 button row --- Submit + Hints while active. Once past \texttt{end\_time}, the Submit Flag button is changed
-to a disabled "Time Expired" button, while the active Hints and Solves buttons remain available. Called after a correct submission and by hint-management commands that
-change whether the Hints button should be shown.
+to a disabled "Time Expired" button, while the active Hints and Solves buttons remain available. Called after a correct submission, by hint-management commands, and by \cmd{/edit} to edit the live challenge post in place without creating new messages. If the message was deleted, recreation is left strictly to the background watchdog.
 
 \begin{diagram}{Diagram 6.1 --- Dynamic Promotion Flow}
     [node distance=1.8cm]
@@ -822,11 +821,14 @@ WebSocket ping (\texttt{interaction.client.ws.ping}). Ephemeral, no database acc
     \item Purchasing (\texttt{buy\_hint}) deducts the cost from the buyer's \texttt{Score} and
           creates an \texttt{UnlockedHint} record, then immediately calls
           \texttt{updateLeaderboard()} since spending points can change standings.
-    \item \textbf{Expired Challenge Hint Confirmation:} If a player attempts to buy a hint on a
-          challenge that has already expired, the bot prompts them with an ephemeral confirmation
-          dialog warning that the purchase is final and will not be refunded unless the challenge or
-          hint is deleted by an administrator. The purchase is only executed if the user selects
-          \texttt{Confirm Purchase}.
+    \item \textbf{Expired Challenge Free Hints:} When a challenge has expired (\texttt{end\_time} passed),
+          all of its hints become completely free. Clicking the \textbf{Hints} button displays all clues
+          immediately with no point deductions and no buy buttons. Any unlock recorded after expiry
+          stores \texttt{cost\_paid: 0}.
+    \item \textbf{Exact Refund Accounting:} \texttt{UnlockedHint} stores the exact \texttt{cost\_paid}
+          at unlock time. When an administrator deletes a hint (\cmd{/remove\_hint}) or deletes a
+          challenge (\cmd{/delete}), only users who actually spent points are refunded; users who unlocked
+          clues for free after expiry receive no unearned points.
     \item \cmd{/add\_hint} attaches a new hint and refreshes the live challenge post so its Hints
           button appears if this was the challenge's first hint.
     \item \cmd{/remove\_hint} deletes a hint by its 1-based display index and refunds every buyer
@@ -958,7 +960,7 @@ configured via \cmd{/setup}.
 
     \item[\cmd{/post} \param{challenge\_id start\_time end\_time} [\param{channel description
     connection\_info file}]]
-    Publishes an existing draft. Times use \texttt{DD/MM HH:MM}; a past \param{start\_time} posts
+    Publishes an existing draft. Times use 24-hour \texttt{DD/MM HH:MM} format (e.g. \texttt{25/12 14:00}); a past \param{start\_time} posts
     immediately, a future one is picked up by the scheduler in the next 60-second tick. Writes
     \param{description}/\param{connection\_info}/\param{file\_url}/\param{channel\_id} onto the
     \texttt{Flag} document and resets \texttt{msg\_id} to \texttt{null} so the post is (re)created.
@@ -966,9 +968,10 @@ configured via \cmd{/setup}.
     \item[\cmd{/edit} \param{challenge\_id} [\param{points flag\_text category image\_url
     description connection\_info start\_time end\_time}]] \textbf{Logged.}
     Updates any subset of the listed fields on an existing challenge and, if it is already live,
-    edits the embed in place (preserving the existing First Blood field). It compares the new values with
-    the old values and posts a detailed modification "diff" card to the configured \texttt{channel\_admin\_logs}
-    channel.
+    edits the existing challenge card in place via \texttt{updateChallengePost()} (whether active or expired).
+    It never creates a new card; if the message was deleted from Discord, recreation is handled strictly by the
+    anti-deletion watchdog. It compares the new values with the old values and posts a detailed modification
+    "diff" card to the configured \texttt{channel\_admin\_logs} channel.
 
     \item[\cmd{/delete} \param{challenge\_id confirm="YES"}] \textbf{Logged.}
     Requires the literal string \texttt{YES} in \param{confirm}. Deducts \texttt{points\_awarded}
@@ -977,7 +980,7 @@ configured via \cmd{/setup}.
     itself.
 
     \item[\cmd{/list}]
-    Ephemeral embed listing every challenge's ID, points, and category.
+    Ephemeral embed listing every challenge's name, points, and category.
 
     \item[\cmd{/show} \param{challenge\_id}]
     Ephemeral embed revealing the plaintext flag, description, connection info, schedule

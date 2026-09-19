@@ -134,7 +134,7 @@ async function updateChallengePost(client, challenge_id) {
         const now = Math.floor(Date.now() / 1000);
         const isExpired = flag.end_time && now > flag.end_time;
 
-        let finalDesc = `**Objective:**\n\`\`\`text\n${flag.description}\n\`\`\``;
+        let finalDesc = `**Objective:**\n\`\`\`text\n${flag.description || 'N/A'}\n\`\`\``;
         if (flag.connection_info) finalDesc += `\n**📡 Connection:**\n\`\`\`text\n${flag.connection_info}\n\`\`\``;
 
         const embed = new EmbedBuilder()

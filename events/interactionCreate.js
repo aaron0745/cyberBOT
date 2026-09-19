@@ -117,17 +117,32 @@ module.exports = {
                     return interaction.editReply({ content: 'No hints available for this challenge.' });
                 }
 
+                // Check if challenge is expired
+                const challengeDoc = await Models.Flag.findOne({ challenge_id });
+                const now = Math.floor(Date.now() / 1000);
+                const isExpired = challengeDoc && challengeDoc.end_time && now > challengeDoc.end_time;
+
                 // Check if user is hidden
                 const hiddenConfig = await Models.Config.findOne({ key: 'hidden_users' });
                 const isHidden = hiddenConfig && Array.isArray(hiddenConfig.value) && hiddenConfig.value.includes(interaction.user.id);
 
-                let response = `**Hints for ${challenge_id}:**\n\n`;
+                let response = isExpired 
+                    ? `**Hints for ${challenge_id} (Challenge Ended — All Hints Free):**\n\n`
+                    : `**Hints for ${challenge_id}:**\n\n`;
+
                 const buttons = [];
                 for (let i = 0; i < hints.length; i++) {
                     const hint = hints[i];
                     const isUnlocked = await Models.UnlockedHint.findOne({ user_id: interaction.user.id, hint_id: hint._id.toString() });
-                    if (isUnlocked || hint.cost === 0 || isHidden) {
+                    if (isUnlocked || hint.cost === 0 || isHidden || isExpired) {
                         response += `**Hint ${i+1}:** ${hint.hint_text}\n`;
+                        if (isExpired && !isUnlocked && !isHidden) {
+                            await Models.UnlockedHint.create({ 
+                                user_id: interaction.user.id, 
+                                hint_id: hint._id.toString(), 
+                                cost_paid: 0 
+                            }).catch(() => null);
+                        }
                     } else {
                         response += `**Hint ${i+1}:** 🔒 *Locked* (Cost: ${hint.cost} points)\n`;
                         buttons.push(
@@ -171,42 +186,33 @@ module.exports = {
                 const isHidden = hiddenConfig && Array.isArray(hiddenConfig.value) && hiddenConfig.value.includes(interaction.user.id);
 
                 if (isHidden) {
-                    return interaction.editReply({ content: `🔓 **Hint Unlocked (Hidden User):**\n\n${hint.hint_text}` });
+                    return interaction.editReply({ content: `🔓 **Hint Unlocked (Hidden User):**\n\n${hint.hint_text}`, components: [] });
                 }
 
                 const isUnlocked = await Models.UnlockedHint.findOne({ user_id: interaction.user.id, hint_id });
-                if (isUnlocked) return interaction.editReply({ content: `✅ You already bought this hint:\n\n${hint.hint_text}` });
+                if (isUnlocked) return interaction.editReply({ content: `✅ You already unlocked this hint:\n\n${hint.hint_text}`, components: [] });
 
                 // Check if challenge is expired
                 const challengeDoc = await Models.Flag.findOne({ challenge_id: hint.challenge_id });
                 const now = Math.floor(Date.now() / 1000);
                 const isExpired = challengeDoc && challengeDoc.end_time && now > challengeDoc.end_time;
 
-                if (isExpired && action === 'buy_hint') {
-                    const row = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`buy_hint_confirm:${hint_id}`)
-                            .setLabel('Confirm Purchase')
-                            .setStyle(ButtonStyle.Success),
-                        new ButtonBuilder()
-                            .setCustomId('buy_hint_cancel')
-                            .setLabel('Cancel')
-                            .setStyle(ButtonStyle.Danger)
-                    );
-                    return interaction.editReply({
-                        content: `⚠️ **Warning: This challenge has expired.**\nAre you sure you want to buy this hint? It will cost **${hint.cost} points** and will **not be refunded** unless the challenge or hint is deleted by an admin.`,
-                        components: [row]
+                if (isExpired) {
+                    await Models.UnlockedHint.create({ user_id: interaction.user.id, hint_id: hint_id, cost_paid: 0 });
+                    return interaction.editReply({ 
+                        content: `🔓 **Hint Unlocked (Free — Challenge Expired):**\n\n${hint.hint_text}`, 
+                        components: [] 
                     });
                 }
 
                 const score = await Models.Score.findOne({ user_id: interaction.user.id });
                 if (!score || score.points < hint.cost) {
-                    return interaction.editReply({ content: `❌ Not enough points! You need ${hint.cost} but have ${score ? score.points : 0}.` });
+                    return interaction.editReply({ content: `❌ Not enough points! You need ${hint.cost} but have ${score ? score.points : 0}.`, components: [] });
                 }
 
                 // Deduct points
                 await Models.Score.updateOne({ user_id: interaction.user.id }, { $inc: { points: -hint.cost } });
-                await Models.UnlockedHint.create({ user_id: interaction.user.id, hint_id: hint_id });
+                await Models.UnlockedHint.create({ user_id: interaction.user.id, hint_id: hint_id, cost_paid: hint.cost });
                 
                 await updateLeaderboard(client);
                 
@@ -349,11 +355,19 @@ module.exports = {
                 const wrongChanConf = await Models.Config.findOne({ key: 'channel_wrong_submissions' });
                 let logChan = null;
                 let wrongChan = null;
-                try {
-                    if (logChanConf && !isHidden) logChan = await client.channels.fetch(logChanConf.value);
-                    if (wrongChanConf && !isHidden) wrongChan = await client.channels.fetch(wrongChanConf.value);
-                } catch (e) {
-                    console.error('Error fetching log channels:', e);
+                if (logChanConf && !isHidden) {
+                    try {
+                        logChan = await client.channels.fetch(logChanConf.value);
+                    } catch (e) {
+                        console.error('Error fetching channel_challenge_logs:', e);
+                    }
+                }
+                if (wrongChanConf && !isHidden) {
+                    try {
+                        wrongChan = await client.channels.fetch(wrongChanConf.value);
+                    } catch (e) {
+                        console.error('Error fetching channel_wrong_submissions:', e);
+                    }
                 }
 
                 if (submittedFlag === challenge.flag_text) {

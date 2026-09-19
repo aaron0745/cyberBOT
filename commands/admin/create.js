@@ -69,6 +69,30 @@ module.exports = {
                 image_url
             });
 
+            // Log to channel_admin_logs
+            const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
+            if (adminLogConfig && adminLogConfig.value) {
+                try {
+                    const logChannel = await interaction.client.channels.fetch(adminLogConfig.value);
+                    if (logChannel) {
+                        const { EmbedBuilder } = require('discord.js');
+                        const embed = new EmbedBuilder()
+                            .setTitle(`📝 Challenge Created: ${challenge_id}`)
+                            .setDescription(`Admin <@${interaction.user.id}> created a new challenge in draft mode.`)
+                            .setColor(0x00FF00)
+                            .addFields(
+                                { name: '💰 Bounty', value: `**${points} Points**`, inline: true },
+                                { name: '📂 Category', value: `**${category}**`, inline: true }
+                            )
+                            .setTimestamp();
+                        if (image_url) embed.setImage(image_url);
+                        await logChannel.send({ embeds: [embed] });
+                    }
+                } catch (e) {
+                    console.error('Error sending create admin log:', e);
+                }
+            }
+
             await interaction.editReply({ 
                 content: `✅ Successfully created challenge **${challenge_id}**!\nNext step: use \`/post\` to publish it.` 
             });

@@ -7,9 +7,9 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('post')
         .setDescription('Post or schedule a challenge')
-        .addStringOption(option => option.setName('challenge_id').setDescription('ID of the challenge to post').setRequired(true))
-        .addStringOption(option => option.setName('start_time').setDescription('When to post (DD/MM HH:MM)').setRequired(true))
-        .addStringOption(option => option.setName('end_time').setDescription('When it expires (DD/MM HH:MM)').setRequired(true))
+        .addStringOption(option => option.setName('challenge_id').setDescription('ID of the challenge to post').setRequired(true).setAutocomplete(true))
+        .addStringOption(option => option.setName('start_time').setDescription('When to post (DD/MM HH:MM, 24-hr format)').setRequired(true))
+        .addStringOption(option => option.setName('end_time').setDescription('When it expires (DD/MM HH:MM, 24-hr format)').setRequired(true))
         .addChannelOption(option => option.setName('channel').setDescription('Target channel').setRequired(false))
         .addStringOption(option => option.setName('description').setDescription('Brief objective').setRequired(false))
         .addStringOption(option => option.setName('connection_info').setDescription('Optional connection string').setRequired(false))
@@ -35,13 +35,16 @@ module.exports = {
                 const [datePart, timePart] = str.split(' ');
                 const [day, month] = datePart.split('/');
                 const [hour, minute] = timePart.split(':');
-                return Math.floor(new Date(currentYear, parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute)).getTime() / 1000);
+                const h = parseInt(hour);
+                const m = parseInt(minute);
+                if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return NaN;
+                return Math.floor(new Date(currentYear, parseInt(month) - 1, parseInt(day), h, m).getTime() / 1000);
             };
             start_time = parseDateStr(start_time_str);
             end_time = parseDateStr(end_time_str);
             if (isNaN(start_time) || isNaN(end_time)) throw new Error("Invalid");
         } catch (e) {
-            return interaction.editReply({ content: "❌ **Invalid time format!** Use `DD/MM HH:MM` (e.g. `25/12 14:00`)." });
+            return interaction.editReply({ content: "❌ **Invalid time format!** Use `DD/MM HH:MM` in 24-hour format (e.g. `25/12 14:00`)." });
         }
 
         try {
@@ -50,16 +53,30 @@ module.exports = {
                 return interaction.editReply({ content: `❌ Challenge \`${challenge_id}\` not found in database.` });
             }
 
-            let file_url = null;
-            if (fileAttachment) {
-                file_url = fileAttachment.url;
-            }
+            let file_url = fileAttachment ? fileAttachment.url : flagData.file_url;
 
             const current_time = Math.floor(Date.now() / 1000);
+
+            // Clean up existing live messages if challenge was already posted to avoid orphaned duplicates
+            if (flagData.channel_id && flagData.msg_id) {
+                try {
+                    const oldChannel = await interaction.client.channels.fetch(flagData.channel_id).catch(() => null);
+                    if (oldChannel) {
+                        const oldMsg = await oldChannel.messages.fetch(flagData.msg_id).catch(() => null);
+                        if (oldMsg) await oldMsg.delete().catch(() => null);
+                        if (flagData.file_msg_id) {
+                            const oldFileMsg = await oldChannel.messages.fetch(flagData.file_msg_id).catch(() => null);
+                            if (oldFileMsg) await oldFileMsg.delete().catch(() => null);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error deleting old challenge message on repost:', e);
+                }
+            }
             
             // Save to database
             await Models.Flag.updateOne({ challenge_id }, {
-                start_time, end_time, description, connection_info, file_url, channel_id: targetChannel.id, msg_id: null
+                start_time, end_time, description, connection_info, file_url, channel_id: targetChannel.id, msg_id: null, file_msg_id: null
             });
 
             if (start_time > current_time) {
@@ -92,7 +109,7 @@ module.exports = {
 
             const postMsg = await targetChannel.send({ embeds: [embed], components: [row] });
             let fMsg = null;
-            if (fileAttachment) fMsg = await targetChannel.send({ files: [fileAttachment.url] });
+            if (file_url) fMsg = await targetChannel.send({ files: [file_url] });
 
             await Models.Flag.updateOne({ challenge_id }, { msg_id: postMsg.id, file_msg_id: fMsg ? fMsg.id : null, posted_at: current_time });
             await interaction.editReply({ content: `✅ Posted **${challenge_id}** immediately!` });

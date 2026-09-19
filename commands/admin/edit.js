@@ -12,8 +12,8 @@ module.exports = {
         .addStringOption(option => option.setName('image_url').setDescription('New image URL').setRequired(false))
         .addStringOption(option => option.setName('description').setDescription('New description').setRequired(false))
         .addStringOption(option => option.setName('connection_info').setDescription('New connection info').setRequired(false))
-        .addStringOption(option => option.setName('start_time').setDescription('New start time (DD/MM HH:MM)').setRequired(false))
-        .addStringOption(option => option.setName('end_time').setDescription('New end time (DD/MM HH:MM)').setRequired(false))
+        .addStringOption(option => option.setName('start_time').setDescription('New start time (DD/MM HH:MM, 24-hr format)').setRequired(false))
+        .addStringOption(option => option.setName('end_time').setDescription('New end time (DD/MM HH:MM, 24-hr format)').setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {
         await interaction.deferReply({ flags: 64 });
@@ -34,7 +34,10 @@ module.exports = {
                 const [datePart, timePart] = str.split(' ');
                 const [day, month] = datePart.split('/');
                 const [hour, minute] = timePart.split(':');
-                const d = new Date(now.getFullYear(), parseInt(month)-1, parseInt(day), parseInt(hour), parseInt(minute));
+                const h = parseInt(hour);
+                const m = parseInt(minute);
+                if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+                const d = new Date(now.getFullYear(), parseInt(month)-1, parseInt(day), h, m);
                 const unix = Math.floor(d.getTime() / 1000);
                 if (isNaN(unix)) return null;
                 return unix;
@@ -48,11 +51,11 @@ module.exports = {
 
         if (start_time_str) {
             start_time = parseDateStr(start_time_str);
-            if (!start_time) return interaction.editReply({ content: "❌ **Invalid start_time format!** Use `DD/MM HH:MM` (e.g. `25/12 14:00`)." });
+            if (!start_time) return interaction.editReply({ content: "❌ **Invalid start_time format!** Use `DD/MM HH:MM` in 24-hour format (e.g. `25/12 14:00`)." });
         }
         if (end_time_str) {
             end_time = parseDateStr(end_time_str);
-            if (!end_time) return interaction.editReply({ content: "❌ **Invalid end_time format!** Use `DD/MM HH:MM` (e.g. `25/12 14:00`)." });
+            if (!end_time) return interaction.editReply({ content: "❌ **Invalid end_time format!** Use `DD/MM HH:MM` in 24-hour format (e.g. `25/12 14:00`)." });
         }
         
         try {
@@ -85,58 +88,15 @@ module.exports = {
             if (updated) {
                 await flag.save();
 
-                // If live message exists, edit the embed
+                // If live message exists, edit the existing card in place (whether expired or not)
                 if (flag.channel_id && flag.msg_id) {
-                    try {
-                        const channel = await interaction.client.channels.fetch(flag.channel_id);
-                        if (channel) {
-                            const msg = await channel.messages.fetch(flag.msg_id);
-                            if (msg && msg.embeds.length > 0) {
-                                const oldEmbed = msg.embeds[0];
-                                
-                                let finalDesc = `**Objective:**\n\`\`\`text\n${flag.description || 'N/A'}\n\`\`\``;
-                                if (flag.connection_info) {
-                                    finalDesc += `\n**📡 Connection:**\n\`\`\`text\n${flag.connection_info}\n\`\`\``;
-                                }
-
-                                const { EmbedBuilder } = require('discord.js');
-                                const newEmbed = new EmbedBuilder(oldEmbed.toJSON())
-                                    .setDescription(finalDesc);
-
-                                // Replace fields keeping First Blood intact if it exists
-                                const fields = [];
-                                fields.push({ name: '💰 Bounty', value: `**${flag.points} Points**`, inline: true });
-                                fields.push({ name: '📂 Category', value: `**${flag.category}**`, inline: true });
-                                if (flag.end_time) {
-                                    fields.push({ name: '⏳ Time Left', value: `<t:${flag.end_time}:R>`, inline: true });
-                                }
-                                
-                                const firstBloodField = oldEmbed.fields.find(f => f.name === '🩸 First Blood');
-                                if (firstBloodField) {
-                                    fields.push(firstBloodField);
-                                } else {
-                                    fields.push({ name: '🩸 First Blood', value: '*Waiting...*', inline: false });
-                                }
-                                
-                                newEmbed.setFields(fields);
-                                
-                                if (flag.image_url) {
-                                    newEmbed.setImage(flag.image_url);
-                                } else {
-                                    newEmbed.setImage(null);
-                                }
-
-                                await msg.edit({ embeds: [newEmbed] });
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Failed to update live Discord message for challenge:', e);
-                    }
+                    const { updateChallengePost } = require('../../utils');
+                    await updateChallengePost(interaction.client, flag.challenge_id);
                 }
 
                 // Send log to channel_admin_logs
                 const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
-                if (adminLogConfig && diff.length > 0) {
+                if (adminLogConfig && adminLogConfig.value && diff.length > 0) {
                     try {
                         const logChannel = await interaction.client.channels.fetch(adminLogConfig.value);
                         if (logChannel) {

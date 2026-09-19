@@ -38,7 +38,7 @@ module.exports = {
             const mission_manual = 
                 "📝 **`/create`**\n↳ Registers a new mission ID, point value, flag, and category in draft mode (hidden from players).\n\n" +
                 "📅 **`/post`**\n↳ Publishes a mission immediately or schedules it. Supports file attachments and custom deadlines.\n\n" +
-                "🛠️ **`/edit`**\n↳ Modifies any mission attribute (Renaming ID, changing points, flag text, or updating scheduling times).\n\n" +
+                "🛠️ **`/edit`**\n↳ Modifies mission attributes (points, flag text, category, description, connection info, or schedule times).\n\n" +
                 "🗑️ **`/delete`**\n↳ Purges a mission. **Recursive Logic:** Automatically refunds points to every player who bought hints for it.\n\n" +
                 "📋 **`/list`**\n↳ Displays a summary of all registered missions and their current status (Posted vs. Draft).\n\n" +
                 "🔐 **`/show [id]`**\n↳ Reveals all hidden data for a specific mission, including the plain-text capture flag.";

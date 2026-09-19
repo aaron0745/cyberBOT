@@ -24,7 +24,7 @@ module.exports = {
             await interaction.reply({ content: `✅ User ${user.tag} has been banned successfully.`, flags: 64 });
 
             const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
-            if (adminLogConfig) {
+            if (adminLogConfig && adminLogConfig.value) {
                 try {
                     const logChannel = await interaction.client.channels.fetch(adminLogConfig.value);
                     if (logChannel) {

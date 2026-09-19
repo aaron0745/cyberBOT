@@ -53,6 +53,11 @@ if (fs.existsSync(eventsPath)) {
 keepAlive();
 
 // Connect to MongoDB before logging in
-connectDB().then(() => {
-    client.login(process.env.DISCORD_TOKEN);
-});
+connectDB()
+    .then(() => {
+        client.login(process.env.DISCORD_TOKEN);
+    })
+    .catch((err) => {
+        console.error('❌ Fatal: Failed to connect to MongoDB on startup. Exiting process...', err);
+        process.exit(1);
+    });
