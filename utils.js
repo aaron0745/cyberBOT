@@ -79,40 +79,47 @@ async function updateLeaderboard(client) {
 
         // Champion handoff
         const roleChampionConf = await Models.Config.findOne({ key: 'role_champion' });
-        if (roleChampionConf && roleChampionConf.value && allScores.length > 0) {
+        if (allScores.length > 0) {
             const championId = allScores[0].user_id;
             const prevChampionConf = await Models.Config.findOne({ key: 'current_champion_id' });
+            const prevChampionId = prevChampionConf ? prevChampionConf.value : null;
             
-            if (!prevChampionConf || prevChampionConf.value !== championId) {
-                // Announce new king
-                await Models.Config.updateOne({ key: 'current_champion_id' }, { value: championId }, { upsert: true });
-                
+            if (!prevChampionId || prevChampionId !== championId) {
+                // Announce to general channel (separate messages for first claim vs dethroning)
                 const genChannelConf = await Models.Config.findOne({ key: 'channel_general' });
                 if (genChannelConf && genChannelConf.value) {
                     try {
                         const genChannel = await client.channels.fetch(genChannelConf.value);
                         if (genChannel) {
-                            genChannel.send(`👑 **NEW KING!** <@${championId}> has taken the #1 spot on the leaderboard!`);
+                            if (!prevChampionId) {
+                                genChannel.send(`🩸 **FIRST BLOOD!** <@${championId}> has claimed the Champion's Belt and taken the #1 spot on the leaderboard!`);
+                            } else {
+                                genChannel.send(`👑 **NEW KING!** <@${championId}> has dethroned <@${prevChampionId}> and taken the #1 spot on the leaderboard!`);
+                            }
                         }
                     } catch(e){}
                 }
 
-                // Actually swap the roles across the guild
-                client.guilds.cache.forEach(async guild => {
-                    try {
-                        const role = await guild.roles.fetch(roleChampionConf.value);
-                        if (role) {
-                            await guild.members.fetch();
-                            role.members.forEach(async (member) => {
-                                if (member.id !== championId) {
-                                    try { await member.roles.remove(role); } catch(e){}
-                                }
-                            });
-                            const newChamp = await guild.members.fetch(championId).catch(()=>null);
-                            if (newChamp) await newChamp.roles.add(role).catch(()=>null);
-                        }
-                    } catch(e){}
-                });
+                await Models.Config.updateOne({ key: 'current_champion_id' }, { value: championId }, { upsert: true });
+
+                // Actually swap the roles across the guild if role_champion is configured
+                if (roleChampionConf && roleChampionConf.value) {
+                    client.guilds.cache.forEach(async guild => {
+                        try {
+                            const role = await guild.roles.fetch(roleChampionConf.value);
+                            if (role) {
+                                await guild.members.fetch();
+                                role.members.forEach(async (member) => {
+                                    if (member.id !== championId) {
+                                        try { await member.roles.remove(role); } catch(e){}
+                                    }
+                                });
+                                const newChamp = await guild.members.fetch(championId).catch(()=>null);
+                                if (newChamp) await newChamp.roles.add(role).catch(()=>null);
+                            }
+                        } catch(e){}
+                    });
+                }
             }
         }
     } catch (e) {

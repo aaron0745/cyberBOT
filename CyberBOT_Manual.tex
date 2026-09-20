@@ -699,10 +699,12 @@ return an \texttt{EmbedBuilder} (10 entries per page, medal emoji for \#1--\#3) 
           \texttt{msg\_leaderboard} message in place (or sends and records a new one if none
           exists) with the Top 10 embed and pagination buttons.
     \item \textbf{Championship handoff:} compares the top scorer's \texttt{user\_id} against
-          \texttt{current\_champion\_id}. On a change, it updates the stored champion, announces
-          "\textbf{NEW KING}" in the \texttt{channel\_general} channel, strips
-          \texttt{role\_champion} from every member currently holding it guild-wide, and grants it
-          to the new \#1.
+          \texttt{current\_champion\_id}. On a change, it updates the stored champion. If no champion
+          previously held the belt, it broadcasts a "\textbf{FIRST BLOOD!}" belt claim alert in the
+          \texttt{channel\_general} channel; if a reigning champion was overtaken, it broadcasts a
+          "\textbf{NEW KING!}" alert naming both the new leader and who was dethroned. If configured,
+          it strips \texttt{role\_champion} from every member currently holding it guild-wide and
+          grants it to the new \#1.
 \end{enumerate}
 
 \texttt{updateLeaderboard()} is called after every event that can move the \#1 position: a correct
@@ -1119,9 +1121,11 @@ flag submission, a hint purchase, \cmd{/setup}, and \cmd{/wipe\_all}.
     \item Aggregate all \texttt{Score} documents, sorted by points descending and earliest/latest
           solve timestamp ascending (via a \texttt{\$lookup} into \texttt{solves}).
     \item Compare the top scorer's \texttt{user\_id} against \texttt{Config.current\_champion\_id}.
-    \item If it changed: update \texttt{current\_champion\_id}, broadcast a \textbf{NEW KING} alert
-          to the general channel, strip the champion role from every current holder guild-wide,
-          and grant it to the new leader.
+    \item If it changed: update \texttt{current\_champion\_id}. If there was no previous champion,
+          broadcast a \textbf{FIRST BLOOD!} belt claim alert to the general channel; if a champion was
+          dethroned, broadcast a \textbf{NEW KING!} alert naming both the new leader and who was dethroned.
+          If \texttt{role\_champion} is configured, strip the champion role from every current holder
+          guild-wide, and grant it to the new leader.
 \end{enumerate}
 
 \note{
