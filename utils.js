@@ -24,15 +24,15 @@ function generateLeaderboardEmbed(allScores, page) {
         .setFooter({ text: `Page ${page + 1} of ${maxPages} • Refreshes periodically` });
 }
 
-function getLeaderboardButtons(page, maxPages) {
+function getLeaderboardButtons(page, maxPages, prefix = 'lb_persist') {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId('lb_main_prev')
+            .setCustomId(`${prefix}_prev`)
             .setLabel('◄ Prev')
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(page === 0),
         new ButtonBuilder()
-            .setCustomId('lb_main_next')
+            .setCustomId(`${prefix}_next`)
             .setLabel('Next ►')
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(page >= maxPages - 1 || maxPages === 0)

@@ -22,21 +22,24 @@ module.exports = {
 
             const replyMessage = await interaction.editReply({
                 embeds: [generateLeaderboardEmbed(allScores, currentPage)],
-                components: [getLeaderboardButtons(currentPage, maxPages)]
+                components: [getLeaderboardButtons(currentPage, maxPages, 'lb_ephem')]
             });
 
             if (maxPages > 1) {
-                const collector = replyMessage.createMessageComponentCollector({ time: 300000 }); // 5 minutes
+                const collector = replyMessage.createMessageComponentCollector({
+                    filter: i => i.user.id === interaction.user.id && (i.customId === 'lb_ephem_prev' || i.customId === 'lb_ephem_next'),
+                    time: 300000 // 5 minutes
+                });
                 collector.on('collect', async i => {
-                    if (i.customId === 'lb_main_prev') currentPage--;
-                    else if (i.customId === 'lb_main_next') currentPage++;
+                    if (i.customId === 'lb_ephem_prev') currentPage--;
+                    else if (i.customId === 'lb_ephem_next') currentPage++;
                     
                     if (currentPage < 0) currentPage = 0;
                     if (currentPage >= maxPages) currentPage = maxPages - 1;
 
                     await i.update({
                         embeds: [generateLeaderboardEmbed(allScores, currentPage)],
-                        components: [getLeaderboardButtons(currentPage, maxPages)]
+                        components: [getLeaderboardButtons(currentPage, maxPages, 'lb_ephem')]
                     });
                 });
                 collector.on('end', () => {

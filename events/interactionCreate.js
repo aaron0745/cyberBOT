@@ -82,8 +82,9 @@ module.exports = {
 
         // --- BUTTON CLICKS ---
         if (interaction.isButton()) {
-            const [action, challenge_id] = interaction.customId.split(':');
-            console.log(`[Button Clicked] ${interaction.user.tag} (${interaction.user.id}) clicked button "${interaction.customId}"`);
+            try {
+                const [action, challenge_id] = interaction.customId.split(':');
+                console.log(`[Button Clicked] ${interaction.user.tag} (${interaction.user.id}) clicked button "${interaction.customId}"`);
 
             if (action === 'submit') {
                 // Check banlist
@@ -282,7 +283,7 @@ module.exports = {
                 }
                 return;
             }
-            if (action === 'lb_main_prev' || action === 'lb_main_next') {
+            if (action === 'lb_persist_prev' || action === 'lb_persist_next' || action === 'lb_main_prev' || action === 'lb_main_next') {
                 await interaction.deferUpdate();
                 
                 const { generateLeaderboardEmbed, getLeaderboardButtons } = require('../utils');
@@ -304,27 +305,37 @@ module.exports = {
                     }
                 }
 
-                if (action === 'lb_main_prev') currentPage--;
-                else if (action === 'lb_main_next') currentPage++;
+                if (action === 'lb_persist_prev' || action === 'lb_main_prev') currentPage--;
+                else if (action === 'lb_persist_next' || action === 'lb_main_next') currentPage++;
 
                 const maxPages = Math.ceil(allScores.length / 10) || 1;
                 if (currentPage < 0) currentPage = 0;
                 if (currentPage >= maxPages) currentPage = maxPages - 1;
 
                 const newEmbed = generateLeaderboardEmbed(allScores, currentPage);
-                const newButtons = getLeaderboardButtons(currentPage, maxPages);
+                const newButtons = getLeaderboardButtons(currentPage, maxPages, 'lb_persist');
 
                 await interaction.editReply({ embeds: [newEmbed], components: [newButtons] });
                 return;
             }
             
             return;
+            } catch (error) {
+                console.error(`Error handling button click "${interaction.customId}":`, error);
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ content: '⚠️ An error occurred while processing this action.', flags: 64 }).catch(() => null);
+                } else {
+                    await interaction.reply({ content: '⚠️ An error occurred while processing this action.', flags: 64 }).catch(() => null);
+                }
+            }
+            return;
         }
 
         // --- MODAL SUBMISSIONS ---
         if (interaction.isModalSubmit()) {
-            const [action, challenge_id] = interaction.customId.split(':');
-            console.log(`[Modal Submitted] ${interaction.user.tag} (${interaction.user.id}) submitted modal "${interaction.customId}"`);
+            try {
+                const [action, challenge_id] = interaction.customId.split(':');
+                console.log(`[Modal Submitted] ${interaction.user.tag} (${interaction.user.id}) submitted modal "${interaction.customId}"`);
 
             if (action === 'modal_submit') {
                 // Submit Cooldown Check
@@ -457,6 +468,16 @@ module.exports = {
                     await interaction.editReply({ content: '❌ Incorrect flag. Try again!' });
                 }
             }
+            return;
+            } catch (error) {
+                console.error(`Error handling modal submission "${interaction.customId}":`, error);
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ content: '⚠️ An error occurred while processing your submission.', flags: 64 }).catch(() => null);
+                } else {
+                    await interaction.reply({ content: '⚠️ An error occurred while processing your submission.', flags: 64 }).catch(() => null);
+                }
+            }
+            return;
         }
     }
 };
