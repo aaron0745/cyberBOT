@@ -82,12 +82,11 @@ class ProfileRenderer:
                 try:
                     with BytesIO(avatar_bytes) as av_buf:
                         with Image.open(av_buf) as av_raw:
-                            av_raw.thumbnail((asz, asz), Image.Resampling.LANCZOS) 
-                            with av_raw.convert("RGBA") as avatar:
-                                with Image.new("L", avatar.size, 0) as mask:
-                                    ImageDraw.Draw(mask).ellipse((0, 0, avatar.size[0], avatar.size[1]), fill=255)
-                                    with ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5)) as output:
-                                        output.putalpha(mask); card.paste(output, (ax, ay), output)
+                            with ImageOps.fit(av_raw.convert("RGBA"), (asz, asz), Image.Resampling.LANCZOS, centering=(0.5, 0.5)) as avatar:
+                                with Image.new("L", (asz, asz), 0) as mask:
+                                    ImageDraw.Draw(mask).ellipse((0, 0, asz, asz), fill=255)
+                                    avatar.putalpha(mask)
+                                    card.paste(avatar, (ax, ay), avatar)
                 except Exception: avatar_bytes = None
             
             if not avatar_bytes:
