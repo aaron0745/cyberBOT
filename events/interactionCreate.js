@@ -286,7 +286,10 @@ module.exports = {
                 await interaction.deferUpdate();
                 
                 const { generateLeaderboardEmbed, getLeaderboardButtons } = require('../utils');
+                const hiddenConfig = await Models.Config.findOne({ key: 'hidden_users' });
+                const hiddenUsers = hiddenConfig && Array.isArray(hiddenConfig.value) ? hiddenConfig.value : [];
                 const allScores = await Models.Score.aggregate([
+                    { $match: { user_id: { $nin: hiddenUsers }, points: { $gt: 0 } } },
                     { $lookup: { from: 'solves', localField: 'user_id', foreignField: 'user_id', as: 'user_solves' } },
                     { $addFields: { latest_solve: { $ifNull: [{ $max: "$user_solves.timestamp" }, 9999999999999] } } },
                     { $sort: { points: -1, latest_solve: 1 } }

@@ -41,17 +41,39 @@ function getLeaderboardButtons(page, maxPages) {
 
 async function updateLeaderboard(client) {
     try {
+        // 1. Reconcile Score records with current solves and hint purchases in DB
+        const activeSolves = await Models.Solve.aggregate([
+            { $group: { _id: "$user_id", total: { $sum: { $ifNull: ["$points_awarded", 0] } } } }
+        ]);
+        const activeUserIds = activeSolves.map(s => s._id);
+
+        // Delete orphaned score records for users who have no solves in the DB
+        await Models.Score.deleteMany({ user_id: { $nin: activeUserIds } });
+
+        // Update score points to reflect net earnings (solves - hint costs)
+        const activeHints = await Models.UnlockedHint.aggregate([
+            { $group: { _id: "$user_id", total: { $sum: { $ifNull: ["$cost_paid", 0] } } } }
+        ]);
+        const hintMap = new Map(activeHints.map(h => [h._id, h.total]));
+
+        for (const s of activeSolves) {
+            const hintCost = hintMap.get(s._id) || 0;
+            const netPoints = Math.max(0, s.total - hintCost);
+            await Models.Score.updateOne({ user_id: s._id }, { $set: { points: netPoints } });
+        }
+
+        // 2. Fetch all scores excluding hidden users and users with 0 points
         const hiddenConfig = await Models.Config.findOne({ key: 'hidden_users' });
         const hiddenUsers = hiddenConfig && Array.isArray(hiddenConfig.value) ? hiddenConfig.value : [];
 
         const allScores = await Models.Score.aggregate([
-            { $match: { user_id: { $nin: hiddenUsers } } },
+            { $match: { user_id: { $nin: hiddenUsers }, points: { $gt: 0 } } },
             { $lookup: { from: 'solves', localField: 'user_id', foreignField: 'user_id', as: 'user_solves' } },
             { $addFields: { latest_solve: { $ifNull: [{ $max: "$user_solves.timestamp" }, 9999999999999] } } },
             { $sort: { points: -1, latest_solve: 1 } }
         ]);
 
-        // Auto-post persistent
+        // 3. Auto-post or edit persistent leaderboard card (always updates, even if empty)
         const lbChannelConf = await Models.Config.findOne({ key: 'channel_leaderboard' });
         const lbMsgConf = await Models.Config.findOne({ key: 'msg_leaderboard' });
         
@@ -77,7 +99,7 @@ async function updateLeaderboard(client) {
             } catch(e){}
         }
 
-        // Champion handoff
+        // 4. Champion handoff or vacancy reset
         const roleChampionConf = await Models.Config.findOne({ key: 'role_champion' });
         if (allScores.length > 0) {
             const championId = allScores[0].user_id;
@@ -121,9 +143,31 @@ async function updateLeaderboard(client) {
                     });
                 }
             }
+        } else {
+            // Empty leaderboard: clear champion if one was previously recorded
+            const prevChampionConf = await Models.Config.findOne({ key: 'current_champion_id' });
+            if (prevChampionConf) {
+                await Models.Config.deleteOne({ key: 'current_champion_id' });
+                if (roleChampionConf && roleChampionConf.value) {
+                    client.guilds.cache.forEach(async guild => {
+                        try {
+                            const role = await guild.roles.fetch(roleChampionConf.value);
+                            if (role) {
+                                await guild.members.fetch();
+                                role.members.forEach(async (member) => {
+                                    try { await member.roles.remove(role); } catch(e){}
+                                });
+                            }
+                        } catch(e){}
+                    });
+                }
+            }
         }
+
+        return allScores;
     } catch (e) {
         console.error("updateLeaderboard error:", e);
+        return [];
     }
 }
 
