@@ -73,13 +73,34 @@ function triggerDeployHook(url) {
     });
 }
 
+async function logToAdminChannel(interaction, title, description, fields = [], color = 0x00FF78) {
+    try {
+        const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
+        if (adminLogConfig && adminLogConfig.value) {
+            const logChannel = await interaction.client.channels.fetch(adminLogConfig.value).catch(() => null);
+            if (logChannel) {
+                const logEmbed = new EmbedBuilder()
+                    .setTitle(title)
+                    .setDescription(description)
+                    .setColor(color)
+                    .setTimestamp();
+                if (fields && fields.length > 0) {
+                    logEmbed.addFields(fields);
+                }
+                await logChannel.send({ embeds: [logEmbed] });
+            }
+        }
+    } catch (e) {
+        console.error('Error logging to admin channel:', e);
+    }
+}
+
 async function getLatestGitHubCommit(repoSlug, branch) {
     // 1. Try Git ls-remote (fast, zero rate limits, protocol-level)
     try {
         const stdout = execSync(`git ls-remote https://github.com/${repoSlug}.git refs/heads/${branch}`, { timeout: 6000 }).toString();
         const parts = stdout.trim().split(/\s+/);
         if (parts[0] && parts[0].length >= 7) {
-            // Also try to get commit message from git log if local repo matches
             let msg = '';
             try {
                 msg = execSync(`git log -1 --format="%s" ${parts[0]}`, { timeout: 2000 }).toString().trim();
@@ -136,7 +157,7 @@ module.exports = {
         // Check latest commit on GitHub (using git ls-remote and atom feed without API rate limits)
         const latest = await getLatestGitHubCommit(repoSlug, branch);
 
-        // Case A: Could not check GitHub -> Prompt the user instead of automatically deploying
+        // Case A: Could not check GitHub -> Prompt user with options
         if (!latest || !latest.sha) {
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
@@ -168,11 +189,33 @@ module.exports = {
                 });
 
                 if (confirmation.customId === 'redeploy_force') {
-                    await confirmation.update({ content: '🚀 Triggering redeployment on Render...', components: [] });
+                    await confirmation.update({ content: '🚀 **Force Redeployment Initiated!**\nTriggering rebuild on Render...', components: [] });
+                    
+                    // Log Force Redeploy to Admin Logs Channel
+                    await logToAdminChannel(
+                        interaction,
+                        '🚀 Force Redeployment Triggered',
+                        `Admin <@${interaction.user.id}> initiated a **Force Redeploy** via \`/redeploy\` (GitHub check bypassed).`,
+                        [
+                            { name: '📦 Current Commit', value: currentCommit ? `\`${currentCommit.substring(0, 7)}\`` : '`Unknown`', inline: true },
+                            { name: '⚙️ Mode', value: '`Manual Override`', inline: true }
+                        ]
+                    );
+
                     await triggerDeployHook(deployHook);
                     return;
                 } else if (confirmation.customId === 'redeploy_restart_yes') {
-                    await confirmation.update({ content: '🔄 Restarting CyberBOT...', components: [] });
+                    await confirmation.update({ content: '🔄 **Restarting CyberBOT...**\nProcess is shutting down. Render will reboot in ~5–10 seconds.', components: [] });
+                    
+                    // Log Restart to Admin Logs Channel
+                    await logToAdminChannel(
+                        interaction,
+                        '🔄 Restart Triggered',
+                        `Admin <@${interaction.user.id}> initiated a service restart via \`/redeploy\` prompt.`,
+                        [],
+                        0xFFA500
+                    );
+
                     setTimeout(() => process.exit(0), 1000);
                     return;
                 } else {
@@ -193,15 +236,20 @@ module.exports = {
             currentCommit.toLowerCase().startsWith(latestSha.toLowerCase())
         );
 
-        // Case B: No new commits -> Ask to restart or cancel
+        // Case B: No new commits -> Offer Restart, Force Redeploy, or Cancel
         if (isSameCommit) {
             const shortSha = currentCommit ? currentCommit.substring(0, 7) : latestSha.substring(0, 7);
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('redeploy_restart_yes')
-                    .setLabel('Yes, Restart Service')
+                    .setLabel('Restart Service')
                     .setStyle(ButtonStyle.Success)
                     .setEmoji('🔄'),
+                new ButtonBuilder()
+                    .setCustomId('redeploy_force')
+                    .setLabel('Force Redeploy Anyway')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🚀'),
                 new ButtonBuilder()
                     .setCustomId('redeploy_restart_cancel')
                     .setLabel('Cancel')
@@ -210,7 +258,7 @@ module.exports = {
             );
 
             const promptMsg = await interaction.editReply({
-                content: `⚠️ **No new commits found on GitHub** (already running latest: [\`${shortSha}\`](https://github.com/${repoSlug}/commit/${latestSha})${latestMessage ? ` — *"${latestMessage}"*` : ''}).\n\nDo you want to restart the service instead?`,
+                content: `⚠️ **No new commits found on GitHub** (already running latest: [\`${shortSha}\`](https://github.com/${repoSlug}/commit/${latestSha})${latestMessage ? ` — *"${latestMessage}"*` : ''}).\n\nWhat would you like to do?`,
                 components: [row]
             });
 
@@ -221,30 +269,41 @@ module.exports = {
                 });
 
                 if (confirmation.customId === 'redeploy_restart_yes') {
-                    // Log to Admin Logs Channel if configured
-                    try {
-                        const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
-                        if (adminLogConfig && adminLogConfig.value) {
-                            const logChannel = await interaction.client.channels.fetch(adminLogConfig.value).catch(() => null);
-                            if (logChannel) {
-                                const logEmbed = new EmbedBuilder()
-                                    .setTitle('🔄 Restart Triggered')
-                                    .setDescription(`Admin <@${interaction.user.id}> initiated a service restart via \`/redeploy\` prompt (no new commits).`)
-                                    .setColor(0xFFA500)
-                                    .setTimestamp();
-                                await logChannel.send({ embeds: [logEmbed] });
-                            }
-                        }
-                    } catch (e) {}
-
                     await confirmation.update({
                         content: '🔄 **Restarting CyberBOT...**\nProcess is shutting down. Render container supervisor will reboot the service in ~5–10 seconds.',
                         components: []
                     });
 
+                    // Log Restart to Admin Logs Channel
+                    await logToAdminChannel(
+                        interaction,
+                        '🔄 Restart Triggered',
+                        `Admin <@${interaction.user.id}> initiated a service restart via \`/redeploy\` prompt (no new commits).`,
+                        [],
+                        0xFFA500
+                    );
+
                     setTimeout(() => {
                         process.exit(0);
                     }, 1000);
+                } else if (confirmation.customId === 'redeploy_force') {
+                    await confirmation.update({
+                        content: '🚀 **Force Redeployment Initiated!**\nRender build triggered. CyberBOT will reboot once the new image is ready.',
+                        components: []
+                    });
+
+                    // Log Force Redeploy to Admin Logs Channel
+                    await logToAdminChannel(
+                        interaction,
+                        '🚀 Force Redeployment Triggered',
+                        `Admin <@${interaction.user.id}> initiated a **Force Redeploy** via \`/redeploy\` (up-to-date override).`,
+                        [
+                            { name: '📦 Target Commit', value: `[\`${shortSha}\`](https://github.com/${repoSlug}/commit/${latestSha})`, inline: true },
+                            { name: '⚙️ Mode', value: '`Manual Force Override`', inline: true }
+                        ]
+                    );
+
+                    await triggerDeployHook(deployHook);
                 } else {
                     await confirmation.update({
                         content: '❌ Action cancelled. CyberBOT remains online without restarting.',
@@ -265,26 +324,15 @@ module.exports = {
             await triggerDeployHook(deployHook);
 
             // Log to Admin Logs Channel
-            try {
-                const adminLogConfig = await Models.Config.findOne({ key: 'channel_admin_logs' });
-                if (adminLogConfig && adminLogConfig.value) {
-                    const logChannel = await interaction.client.channels.fetch(adminLogConfig.value).catch(() => null);
-                    if (logChannel) {
-                        const logEmbed = new EmbedBuilder()
-                            .setTitle('🚀 Redeployment Triggered')
-                            .setDescription(`Admin <@${interaction.user.id}> triggered a rebuild & redeploy via \`/redeploy\`.`)
-                            .addFields(
-                                { name: '📦 New Commit', value: `[\`${latestSha.substring(0, 7)}\`](https://github.com/${repoSlug}/commit/${latestSha})`, inline: true },
-                                { name: '💬 Message', value: latestMessage ? `\`${latestMessage}\`` : '`N/A`', inline: false }
-                            )
-                            .setColor(0x00FF78)
-                            .setTimestamp();
-                        await logChannel.send({ embeds: [logEmbed] });
-                    }
-                }
-            } catch (e) {
-                console.error('Error logging redeploy:', e);
-            }
+            await logToAdminChannel(
+                interaction,
+                '🚀 Redeployment Triggered',
+                `Admin <@${interaction.user.id}> triggered a rebuild & redeploy via \`/redeploy\`.`,
+                [
+                    { name: '📦 New Commit', value: `[\`${latestSha.substring(0, 7)}\`](https://github.com/${repoSlug}/commit/${latestSha})`, inline: true },
+                    { name: '💬 Message', value: latestMessage ? `\`${latestMessage}\`` : '`N/A`', inline: false }
+                ]
+            );
 
             const embed = new EmbedBuilder()
                 .setTitle('🚀 Redeployment Initiated')
