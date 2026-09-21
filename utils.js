@@ -14,9 +14,7 @@ function generateLeaderboardEmbed(allScores, page) {
         else if (rank === 2) icon = '🥈';
         else if (rank === 3) icon = '🥉';
         else icon = `**#${rank}**`;
-        const name = score.display_name || score.username;
-        const userDisplay = name ? `[@${name}](https://discord.com/users/${score.user_id})` : `<@${score.user_id}>`;
-        desc += `${icon} • ${userDisplay} — \`${score.points || 0} pts\`\n`;
+        desc += `${icon} • <@${score.user_id}> — \`${score.points || 0} pts\`\n`;
     });
     return new EmbedBuilder()
         .setTitle('🏆 CyberBOT GLOBAL STANDINGS')
