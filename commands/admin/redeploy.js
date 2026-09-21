@@ -95,34 +95,59 @@ async function logToAdminChannel(interaction, title, description, fields = [], c
     }
 }
 
+async function getCommitMessageFromPatch(repoSlug, sha) {
+    try {
+        const patch = await fetchText(`https://github.com/${repoSlug}/commit/${sha}.patch`);
+        const match = patch.match(/Subject:\s*\[PATCH\]\s*([\s\S]*?)\n---/);
+        if (match) {
+            return match[1].replace(/\n\s+/g, ' ').trim();
+        }
+    } catch (e) {}
+    return '';
+}
+
 async function getLatestGitHubCommit(repoSlug, branch) {
+    let sha = null;
+    let message = '';
+
     // 1. Try Git ls-remote (fast, zero rate limits, protocol-level)
     try {
         const stdout = execSync(`git ls-remote https://github.com/${repoSlug}.git refs/heads/${branch}`, { timeout: 6000 }).toString();
         const parts = stdout.trim().split(/\s+/);
         if (parts[0] && parts[0].length >= 7) {
-            let msg = '';
-            try {
-                msg = execSync(`git log -1 --format="%s" ${parts[0]}`, { timeout: 2000 }).toString().trim();
-            } catch (e) {}
-            return { sha: parts[0], message: msg };
+            sha = parts[0];
         }
     } catch (e) {}
 
-    // 2. Try GitHub Atom feed (public web endpoint, bypasses REST API rate limit)
-    try {
-        const atomXml = await fetchText(`https://github.com/${repoSlug}/commits/${branch}.atom`);
-        const match = atomXml.match(/<id>tag:github\.com,2008:Grit::Commit\/([a-f0-9]{40})<\/id>[\s\S]*?<title>\s*([\s\S]*?)\s*<\/title>/);
-        if (match) {
-            const cleanTitle = match[2]
-                .replace(/&lt;/g, '<')
-                .replace(/&gt;/g, '>')
-                .replace(/&amp;/g, '&')
-                .replace(/&quot;/g, '"')
-                .trim();
-            return { sha: match[1], message: cleanTitle };
+    // 2. If ls-remote failed, fallback to GitHub Atom feed for SHA and title
+    if (!sha) {
+        try {
+            const atomXml = await fetchText(`https://github.com/${repoSlug}/commits/${branch}.atom`);
+            const match = atomXml.match(/<id>tag:github\.com,2008:Grit::Commit\/([a-f0-9]{40})<\/id>[\s\S]*?<title>\s*([\s\S]*?)\s*<\/title>/);
+            if (match) {
+                sha = match[1];
+                message = match[2]
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&quot;/g, '"')
+                    .trim();
+            }
+        } catch (e) {}
+    }
+
+    // 3. Fetch exact full commit message from public patch endpoint
+    if (sha) {
+        const patchMsg = await getCommitMessageFromPatch(repoSlug, sha);
+        if (patchMsg) {
+            message = patchMsg;
+        } else if (!message) {
+            try {
+                message = execSync(`git log -1 --format="%s" ${sha}`, { timeout: 2000 }).toString().trim();
+            } catch (e) {}
         }
-    } catch (e) {}
+        return { sha, message: message || 'Latest commit' };
+    }
 
     return null;
 }
