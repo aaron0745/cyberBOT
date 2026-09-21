@@ -33,7 +33,9 @@ module.exports = {
                 "📋 **`/list_rank_roles`**\n↳ Displays all currently configured point requirements and their associated roles.\n\n" +
                 "📦 **`/export`**\n↳ Generates and sends a downloadable `CyberBOT_backup.json` file for local backup.\n\n" +
                 "📥 **`/import [file]`**\n↳ Live-swaps the current database with a backup file. Zero-downtime restoration.\n\n" +
-                "🔄 **`/reset_config`**\n↳ Wipes only the channel and role settings, leaving player data intact.";
+                "🔄 **`/reset_config`**\n↳ Wipes only the channel and role settings, leaving player data intact.\n\n" +
+                "🚀 **`/redeploy`**\n↳ Checks for new GitHub commits and triggers Render rebuild (prompts restart if up-to-date).\n\n" +
+                "🔁 **`/restart`**\n↳ Reboots the bot process cleanly (Render supervisor brings it back in ~5s).";
 
             const mission_manual = 
                 "📝 **`/create`**\n↳ Registers a new mission ID, point value, flag, and category in draft mode (hidden from players).\n\n" +

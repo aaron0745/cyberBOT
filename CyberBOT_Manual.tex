@@ -1076,6 +1076,15 @@ configured via \cmd{/setup}.
     the \texttt{hidden\_users} list in one call, while leaving \texttt{Flag}, \texttt{Score}, and
     \texttt{Solve} data (i.e. all player progress) untouched. Re-run \cmd{/setup} and
     \cmd{/hide\_user} afterward to restore configuration.
+
+    \item[\cmd{/redeploy}] \textbf{Logged.}
+    Queries the GitHub API to check whether new commits exist compared to the running deployment.
+    If new commits exist, triggers the Render Deploy Hook. If already up-to-date, displays an
+    interactive prompt asking whether to restart the bot instead.
+
+    \item[\cmd{/restart}] \textbf{Logged.}
+    Gracefully exits the Node.js process (\texttt{process.exit(0)}). Render's supervisor automatically
+    reboots the container within 5--10 seconds.
 \end{description}
 
 \warning{
@@ -1239,6 +1248,8 @@ other extension is rejected before the file is even fetched.
 /export                & Download a full JSON database backup. \\
 /import                & Overwrite the database from a JSON backup. \\
 /reset\_config         & Wipe all Config entries (channels, roles, hidden users). \\
+/redeploy             & Trigger Render rebuild via Deploy Hook (with commit check). \\
+/restart              & Reboot bot process via Render supervisor. \\
 /wipe\_all             & Modal-confirmed full data purge. \\
 \bottomrule
 \end{longtable}

@@ -4,9 +4,59 @@ const { Models } = require('../database/mongoose');
 module.exports = {
     name: Events.ClientReady,
     once: true,
-    execute(client) {
+    async execute(client) {
         console.log(`✅ Logged in as ${client.user.tag}`);
         console.log('🚀 CyberBOT Node.js migration operational.');
+
+        // Auto-sync guild slash commands on startup if GUILD_ID is provided
+        if (process.env.GUILD_ID && client.commands && client.commands.size > 0) {
+            try {
+                const commandList = Array.from(client.commands.values()).map(c => c.data.toJSON());
+                await client.application.commands.set(commandList, process.env.GUILD_ID);
+                console.log(`✅ Auto-synced ${commandList.length} slash commands to guild ${process.env.GUILD_ID}.`);
+            } catch (cmdErr) {
+                console.warn('⚠️ Could not auto-sync commands on startup:', cmdErr.message);
+            }
+        }
+
+        // Send startup deployment alert in Admin Logs Channel
+        try {
+            const adminLogConf = await Models.Config.findOne({ key: 'channel_admin_logs' });
+            if (adminLogConf && adminLogConf.value) {
+                const adminChannel = client.channels.cache.get(adminLogConf.value) || await client.channels.fetch(adminLogConf.value).catch(() => null);
+                if (adminChannel) {
+                    let commit = process.env.RENDER_GIT_COMMIT || '';
+                    let branch = process.env.RENDER_GIT_BRANCH || '';
+                    let repoSlug = process.env.RENDER_GIT_REPO_SLUG || 'aaron0745/cyberBOT';
+                    if (!commit) {
+                        try {
+                            const { execSync } = require('child_process');
+                            commit = execSync('git rev-parse HEAD').toString().trim();
+                            branch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+                        } catch (e) {}
+                    }
+                    const shortCommit = commit ? commit.substring(0, 7) : 'Unknown';
+                    const commitDisplay = (commit && commit !== 'Unknown')
+                        ? `[\`${shortCommit}\`](https://github.com/${repoSlug}/commit/${commit})`
+                        : '`Unknown`';
+
+                    const startupEmbed = new EmbedBuilder()
+                        .setTitle('🟢 CyberBOT System Online')
+                        .setColor(0x00FF78)
+                        .addFields(
+                            { name: '📦 Deployed Commit', value: commitDisplay, inline: true },
+                            { name: '🌿 Branch', value: `\`${branch || 'main'}\``, inline: true },
+                            { name: '⏱️ Boot Time', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true }
+                        )
+                        .setFooter({ text: 'Render Deployment Monitor' })
+                        .setTimestamp();
+
+                    await adminChannel.send({ embeds: [startupEmbed] });
+                }
+            }
+        } catch (err) {
+            console.error('Failed to send startup log to admin channel:', err);
+        }
 
         // Set initial activity
         client.user.setPresence({
