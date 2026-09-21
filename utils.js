@@ -14,7 +14,9 @@ function generateLeaderboardEmbed(allScores, page) {
         else if (rank === 2) icon = '🥈';
         else if (rank === 3) icon = '🥉';
         else icon = `**#${rank}**`;
-        desc += `${icon} • <@${score.user_id}> — \`${score.points || 0} pts\`\n`;
+        const name = score.display_name || score.username;
+        const userDisplay = name ? `**${name}** (<@${score.user_id}>)` : `<@${score.user_id}>`;
+        desc += `${icon} • ${userDisplay} — \`${score.points || 0} pts\`\n`;
     });
     return new EmbedBuilder()
         .setTitle('🏆 CyberBOT GLOBAL STANDINGS')
@@ -62,10 +64,22 @@ async function updateLeaderboard(client) {
             const updateFields = { points: netPoints };
             if (!existingScore || !existingScore.display_name) {
                 try {
+                    let serverNick = null;
+                    if (process.env.GUILD_ID) {
+                        try {
+                            const guild = client.guilds.cache.get(process.env.GUILD_ID) || await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
+                            if (guild) {
+                                const member = await guild.members.fetch(s._id).catch(() => null);
+                                if (member) serverNick = member.displayName;
+                            }
+                        } catch (e) {}
+                    }
                     const user = await client.users.fetch(s._id).catch(() => null);
                     if (user) {
                         updateFields.username = user.username;
-                        updateFields.display_name = user.displayName || user.username;
+                        updateFields.display_name = serverNick || user.displayName || user.username;
+                    } else if (serverNick) {
+                        updateFields.display_name = serverNick;
                     }
                 } catch (e) {}
             }
