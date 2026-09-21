@@ -1,4 +1,13 @@
 process.env.TZ = 'Asia/Kolkata';
+
+// Prevent unhandled errors or rejected promises from crashing the bot process
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('⚠️ Uncaught Exception thrown:', err);
+});
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
