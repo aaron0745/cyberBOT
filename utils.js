@@ -14,8 +14,9 @@ function generateLeaderboardEmbed(allScores, page) {
         else if (rank === 2) icon = '🥈';
         else if (rank === 3) icon = '🥉';
         else icon = `**#${rank}**`;
-        
-        desc += `${icon} • <@${score.user_id}> — \`${score.points || 0} pts\`\n`;
+        const name = score.display_name || score.username;
+        const userDisplay = name ? `[@${name}](https://discord.com/users/${score.user_id})` : `<@${score.user_id}>`;
+        desc += `${icon} • ${userDisplay} — \`${score.points || 0} pts\`\n`;
     });
     return new EmbedBuilder()
         .setTitle('🏆 CyberBOT GLOBAL STANDINGS')
@@ -59,7 +60,18 @@ async function updateLeaderboard(client) {
         for (const s of activeSolves) {
             const hintCost = hintMap.get(s._id) || 0;
             const netPoints = Math.max(0, s.total - hintCost);
-            await Models.Score.updateOne({ user_id: s._id }, { $set: { points: netPoints } });
+            const existingScore = await Models.Score.findOne({ user_id: s._id });
+            const updateFields = { points: netPoints };
+            if (!existingScore || !existingScore.display_name) {
+                try {
+                    const user = await client.users.fetch(s._id).catch(() => null);
+                    if (user) {
+                        updateFields.username = user.username;
+                        updateFields.display_name = user.displayName || user.username;
+                    }
+                } catch (e) {}
+            }
+            await Models.Score.updateOne({ user_id: s._id }, { $set: updateFields }, { upsert: true });
         }
 
         // 2. Fetch all scores excluding hidden users and users with 0 points

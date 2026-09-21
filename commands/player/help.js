@@ -27,7 +27,7 @@ module.exports = {
 
         if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
             const setup_manual = 
-                "⚙️ **`/setup`**\n↳ Links CyberBOT to your server channels (Leaderboard, Logs, General) and designates the Champion role.\n\n" +
+                "⚙️ **`/setup`**\n↳ Links CyberBOT to your server channels (Leaderboard, Logs, General) and designates Champion and Challenge Ping roles.\n\n" +
                 "🆙 **`/set_rank_role [role] [pts]`**\n↳ Defines a dynamic point milestone. CyberBOT will auto-promote players as they reach these scores.\n\n" +
                 "❌ **`/remove_rank_role [role]`**\n↳ Deletes a specific rank milestone from the auto-promotion engine.\n\n" +
                 "📋 **`/list_rank_roles`**\n↳ Displays all currently configured point requirements and their associated roles.\n\n" +

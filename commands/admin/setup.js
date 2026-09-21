@@ -10,6 +10,7 @@ module.exports = {
         .addChannelOption(option => option.setName('wrong_submissions').setDescription('Every failed flag attempt').setRequired(false))
         .addChannelOption(option => option.setName('general_channel').setDescription('Main chat for announcements').setRequired(false))
         .addRoleOption(option => option.setName('champion_role').setDescription('Role for the #1 player').setRequired(false))
+        .addRoleOption(option => option.setName('challenge_ping_role').setDescription('Role pinged when a challenge is posted/drops').setRequired(false))
         .addChannelOption(option => option.setName('channel_admin_logs').setDescription('Where admin actions are logged').setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {
@@ -18,6 +19,7 @@ module.exports = {
         const wrong_submissions = interaction.options.getChannel('wrong_submissions');
         const general_channel = interaction.options.getChannel('general_channel');
         const champion_role = interaction.options.getRole('champion_role');
+        const challenge_ping_role = interaction.options.getRole('challenge_ping_role');
         const channel_admin_logs = interaction.options.getChannel('channel_admin_logs');
         
         let updates = [];
@@ -41,6 +43,10 @@ module.exports = {
             if (champion_role) {
                 await Models.Config.findOneAndUpdate({ key: 'role_champion' }, { value: champion_role.id }, { upsert: true });
                 updates.push(`👑 Champion Role: <@&${champion_role.id}>`);
+            }
+            if (challenge_ping_role) {
+                await Models.Config.findOneAndUpdate({ key: 'role_challenge_ping' }, { value: challenge_ping_role.id }, { upsert: true });
+                updates.push(`🔔 Challenge Ping Role: <@&${challenge_ping_role.id}>`);
             }
             if (channel_admin_logs) {
                 await Models.Config.findOneAndUpdate({ key: 'channel_admin_logs' }, { value: channel_admin_logs.id }, { upsert: true });

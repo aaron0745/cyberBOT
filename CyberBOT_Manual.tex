@@ -455,6 +455,7 @@ channel\_wrong\_submissions & Channel for every incorrect flag attempt. \\
 channel\_general            & Channel for "NEW KING" championship announcements. \\
 channel\_admin\_logs        & Channel that mirrors destructive/administrative actions. \\
 role\_champion               & Role ID granted to the current \#1 player. \\
+role\_challenge\_ping        & Role ID pinged when a challenge is posted or scheduled drop occurs. \\
 current\_champion\_id        & User ID of whoever currently holds \texttt{role\_champion}. \\
 hidden\_users                & Array of user IDs excluded from scoring, logging, and hint costs. \\
 \bottomrule
@@ -1041,8 +1042,8 @@ configured via \cmd{/setup}.
 
 \begin{description}[leftmargin=0pt, itemsep=0.4em]
     \item[\cmd{/setup} [\param{leaderboard\_channel challenge\_logs wrong\_submissions
-    general\_channel champion\_role channel\_admin\_logs}]]
-    Writes whichever of the six optional options were supplied to their corresponding
+    general\_channel champion\_role challenge\_ping\_role channel\_admin\_logs}]]
+    Writes whichever of the seven optional options were supplied to their corresponding
     \texttt{Config} keys, then calls \texttt{updateLeaderboard()}. Purely additive --- omitted
     options leave existing settings untouched.
 
@@ -1231,7 +1232,7 @@ other extension is rejected before the file is even fetched.
 /unban\_user           & Restore a banned user's access. \\
 /hide\_user            & Exclude a user from scoring and logging. \\
 /unhide\_user          & Restore normal scoring and logging for a user. \\
-/setup                 & Configure channels and the champion role. \\
+/setup                 & Configure channels and roles (champion, challenge ping). \\
 /set\_rank\_role       & Define an auto-promotion point threshold. \\
 /remove\_rank\_role    & Remove a rank-role threshold. \\
 /list\_rank\_roles     & List configured thresholds. \\

@@ -26,6 +26,7 @@ const RoleRewardSchema = new mongoose.Schema({
 const ScoreSchema = new mongoose.Schema({
     user_id: { type: String, required: true, unique: true },
     username: { type: String },
+    display_name: { type: String },
     points: { type: Number, default: 0 }
 });
 

@@ -61,7 +61,11 @@ module.exports = {
                     const row = new ActionRowBuilder().addComponents(btnSubmit);
                     if (has_hints) row.addComponents(btnHint);
 
-                    const postMsg = await channel.send({ embeds: [embed], components: [row] });
+                    // Check for challenge ping role
+                    const pingRoleConf = await Models.Config.findOne({ key: 'role_challenge_ping' });
+                    const pingContent = (pingRoleConf && pingRoleConf.value) ? `<@&${pingRoleConf.value}>` : undefined;
+
+                    const postMsg = await channel.send({ content: pingContent, embeds: [embed], components: [row] });
                     let fMsg = null;
                     if (flag.file_url) fMsg = await channel.send({ files: [flag.file_url] });
 

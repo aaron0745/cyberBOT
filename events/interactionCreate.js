@@ -422,10 +422,14 @@ module.exports = {
                     });
 
                     // Update score
+                    const memberDisplayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
                     await Models.Score.updateOne(
                         { user_id: interaction.user.id },
                         { 
-                            $set: { username: interaction.user.username },
+                            $set: { 
+                                username: interaction.user.username,
+                                display_name: memberDisplayName
+                            },
                             $inc: { points: totalAward } 
                         },
                         { upsert: true }
