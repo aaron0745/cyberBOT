@@ -283,8 +283,10 @@ module.exports = {
                 }
                 return;
             }
-            if (action === 'lb_persist_prev' || action === 'lb_persist_next' || action === 'lb_main_prev' || action === 'lb_main_next') {
-                await interaction.deferUpdate();
+            if (action.startsWith('lb_')) {
+                if (!interaction.deferred && !interaction.replied) {
+                    await interaction.deferUpdate();
+                }
                 
                 const { generateLeaderboardEmbed, getLeaderboardButtons } = require('../utils');
                 const hiddenConfig = await Models.Config.findOne({ key: 'hidden_users' });
@@ -296,24 +298,26 @@ module.exports = {
                     { $sort: { points: -1, latest_solve: 1 } }
                 ]);
 
-                const embed = interaction.message.embeds[0];
+                const embed = interaction.message?.embeds?.[0];
                 let currentPage = 0;
                 if (embed && embed.footer && embed.footer.text) {
                     const match = embed.footer.text.match(/Page (\d+)/);
                     if (match) {
-                        currentPage = parseInt(match[1]) - 1;
+                        currentPage = parseInt(match[1], 10) - 1;
                     }
                 }
+                if (isNaN(currentPage)) currentPage = 0;
 
-                if (action === 'lb_persist_prev' || action === 'lb_main_prev') currentPage--;
-                else if (action === 'lb_persist_next' || action === 'lb_main_next') currentPage++;
+                if (action.endsWith('_prev')) currentPage--;
+                else if (action.endsWith('_next')) currentPage++;
 
                 const maxPages = Math.ceil(allScores.length / 10) || 1;
                 if (currentPage < 0) currentPage = 0;
                 if (currentPage >= maxPages) currentPage = maxPages - 1;
 
+                const prefix = action.startsWith('lb_ephem') ? 'lb_ephem' : 'lb_persist';
                 const newEmbed = generateLeaderboardEmbed(allScores, currentPage);
-                const newButtons = getLeaderboardButtons(currentPage, maxPages, 'lb_persist');
+                const newButtons = getLeaderboardButtons(currentPage, maxPages, prefix);
 
                 await interaction.editReply({ embeds: [newEmbed], components: [newButtons] });
                 return;
