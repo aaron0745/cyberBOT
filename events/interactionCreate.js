@@ -35,8 +35,17 @@ module.exports = {
 
         // --- SLASH COMMANDS ---
         if (interaction.isChatInputCommand()) {
-            // Check banlist
-            const isBanned = await Models.Banlist.findOne({ user_id: interaction.user.id });
+            console.log(`[Interaction Received] /${interaction.commandName} from ${interaction.user.tag} (${interaction.user.id})`);
+
+            // Check banlist with timeout guard to prevent 3s interaction timeouts
+            let isBanned = false;
+            try {
+                const banDoc = await Models.Banlist.findOne({ user_id: interaction.user.id }).maxTimeMS(2000);
+                if (banDoc) isBanned = true;
+            } catch (dbErr) {
+                console.warn('⚠️ Banlist check skipped (DB timeout/lag):', dbErr.message);
+            }
+
             if (isBanned) {
                 return interaction.reply({ content: '⛔ You have been banned from using this bot.', flags: 64 });
             }
@@ -53,7 +62,10 @@ module.exports = {
             }
 
             const command = client.commands.get(interaction.commandName);
-            if (!command) return;
+            if (!command) {
+                console.error(`❌ Command /${interaction.commandName} not registered in client.commands. Available: ${Array.from(client.commands.keys()).join(', ')}`);
+                return interaction.reply({ content: '⚠️ Command not found or not registered on this bot instance.', flags: 64 }).catch(() => null);
+            }
 
             // Log command execution to Render console
             const logOptions = (optionsList) => {
@@ -323,6 +335,11 @@ module.exports = {
                 return;
             }
             
+            // Fallback for any unhandled button click so Discord never times out
+            if (!interaction.deferred && !interaction.replied) {
+                console.warn(`[Unhandled Button] customId "${interaction.customId}" was not recognized.`);
+                await interaction.reply({ content: '⚠️ This button action is unrecognized or expired.', flags: 64 }).catch(() => null);
+            }
             return;
             } catch (error) {
                 console.error(`Error handling button click "${interaction.customId}":`, error);

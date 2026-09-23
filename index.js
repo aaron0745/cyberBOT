@@ -1,19 +1,22 @@
+const { keepAlive, addLog } = require('./keep_alive');
+const { connectDB } = require('./database/mongoose');
+
 process.env.TZ = 'Asia/Kolkata';
 
 // Prevent unhandled errors or rejected promises from crashing the bot process
 process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+    addLog('UNHANDLED_REJECTION', reason?.stack || reason);
 });
 
 process.on('uncaughtException', (err) => {
     console.error('⚠️ Uncaught Exception thrown:', err);
+    addLog('UNCAUGHT_EXCEPTION', err?.stack || err);
 });
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 require('dotenv').config();
-const keepAlive = require('./keep_alive');
-const { connectDB } = require('./database/mongoose');
 
 const client = new Client({ 
     intents: [
@@ -59,14 +62,30 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
-keepAlive();
+// Client connection diagnostics
+client.on('error', (err) => {
+    console.error('❌ Discord Client Error:', err);
+    addLog('DISCORD_CLIENT_ERROR', err?.message || err);
+});
+client.on('shardError', (err) => {
+    console.error('❌ Discord Shard Error:', err);
+    addLog('DISCORD_SHARD_ERROR', err?.message || err);
+});
+client.on('shardDisconnect', (event, id) => {
+    console.warn(`🔌 Discord Shard ${id} disconnected (code: ${event.code}, reason: ${event.reason})`);
+    addLog('DISCORD_DISCONNECT', `Shard ${id} disconnected code=${event.code} reason=${event.reason}`);
+});
+
+keepAlive(client);
 
 // Connect to MongoDB before logging in
 connectDB()
-    .then(() => {
-        client.login(process.env.DISCORD_TOKEN);
+    .then(async () => {
+        console.log('🔄 Connecting to Discord Gateway...');
+        await client.login(process.env.DISCORD_TOKEN);
     })
     .catch((err) => {
-        console.error('❌ Fatal: Failed to connect to MongoDB on startup. Exiting process...', err);
+        console.error('❌ Fatal Startup Error:', err);
+        addLog('FATAL_STARTUP', err?.stack || err?.message || err);
         process.exit(1);
     });
