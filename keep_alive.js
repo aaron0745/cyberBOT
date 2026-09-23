@@ -38,6 +38,69 @@ app.get('/health', (req, res) => {
     });
 });
 
+app.get('/debug-auth', (req, res) => {
+    const rawToken = process.env.DISCORD_TOKEN;
+    const token = rawToken ? rawToken.trim() : null;
+    const tokenLength = token ? token.length : 0;
+    const tokenPrefix = token ? token.substring(0, 10) + '...' : null;
+
+    const testDiscordAPI = (path, authHeader) => {
+        return new Promise((resolve) => {
+            const options = {
+                hostname: 'discord.com',
+                path: `/api/v10${path}`,
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'DiscordBot (https://github.com/aaron0745/cyberBOT, 1.0.0)'
+                }
+            };
+            if (authHeader) options.headers['Authorization'] = authHeader;
+
+            const r = https.request(options, (resp) => {
+                let body = '';
+                resp.on('data', chunk => body += chunk);
+                resp.on('end', () => {
+                    resolve({
+                        statusCode: resp.statusCode,
+                        headers: {
+                            'content-type': resp.headers['content-type'],
+                            'retry-after': resp.headers['retry-after'],
+                            'cf-ray': resp.headers['cf-ray']
+                        },
+                        body: body.substring(0, 500)
+                    });
+                });
+            });
+            r.on('error', (err) => resolve({ error: err.message }));
+            r.setTimeout(6000, () => {
+                r.destroy();
+                resolve({ error: 'Request timed out after 6s' });
+            });
+            r.end();
+        });
+    };
+
+    Promise.all([
+        testDiscordAPI('/gateway'),
+        token ? testDiscordAPI('/users/@me', `Bot ${token}`) : Promise.resolve({ error: 'No token' })
+    ]).then(([gatewayRes, userRes]) => {
+        res.json({
+            tokenConfigured: Boolean(token),
+            tokenLength,
+            tokenPrefix,
+            gatewayEndpoint: gatewayRes,
+            userMeEndpoint: userRes,
+            discordClient: {
+                ready: clientRef?.isReady?.() || false,
+                status: clientRef?.ws?.status,
+                user: clientRef?.user?.tag || null
+            }
+        });
+    }).catch(err => {
+        res.status(500).json({ error: err.message });
+    });
+});
+
 app.use((req, res) => {
     res.send('Bot is running!');
 });

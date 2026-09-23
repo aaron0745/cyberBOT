@@ -63,6 +63,17 @@ if (fs.existsSync(eventsPath)) {
 }
 
 // Client connection diagnostics
+client.on('debug', (info) => {
+    if (!info.includes('Heartbeat')) {
+        addLog('DISCORD_DEBUG', info);
+    }
+});
+client.rest.on('rateLimited', (info) => {
+    addLog('REST_RATE_LIMITED', JSON.stringify(info));
+});
+client.rest.on('invalidRequestWarning', (info) => {
+    addLog('REST_INVALID_REQUEST', JSON.stringify(info));
+});
 client.on('error', (err) => {
     console.error('❌ Discord Client Error:', err);
     addLog('DISCORD_CLIENT_ERROR', err?.message || err);
@@ -81,8 +92,12 @@ keepAlive(client);
 // Connect to MongoDB before logging in
 connectDB()
     .then(async () => {
+        const rawToken = process.env.DISCORD_TOKEN;
+        const token = rawToken ? rawToken.trim() : null;
+        addLog('STARTUP_LOGIN_CALL', `Attempting login with token length: ${token ? token.length : 0}`);
         console.log('🔄 Connecting to Discord Gateway...');
-        await client.login(process.env.DISCORD_TOKEN);
+        await client.login(token);
+        addLog('STARTUP_LOGIN_SUCCESS', `Logged in as ${client.user?.tag}`);
     })
     .catch((err) => {
         console.error('❌ Fatal Startup Error:', err);
