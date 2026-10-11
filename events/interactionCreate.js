@@ -1,4 +1,4 @@
-const { Events, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Events, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { Models } = require('../database/mongoose');
 const { updateLeaderboard, updateChallengePost } = require('../utils');
 
@@ -335,6 +335,79 @@ module.exports = {
                 return;
             }
             
+            // --- REDEPLOY BUTTONS ---
+            if (action.startsWith('redeploy_')) {
+                if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+                    return interaction.reply({ content: '⛔ Only administrators can trigger redeployment actions.', flags: 64 });
+                }
+
+                const redeployCmd = client.commands.get('redeploy');
+                const deployHook = process.env.RENDER_DEPLOY_HOOK;
+
+                if (action === 'redeploy_restart_cancel') {
+                    await interaction.update({
+                        content: '❌ Action cancelled. CyberBOT remains online without restarting.',
+                        components: []
+                    });
+                    return;
+                }
+
+                if (action === 'redeploy_restart_yes') {
+                    await interaction.update({
+                        content: '🔄 **Restarting CyberBOT...**\nProcess is shutting down. Render container supervisor will reboot the service in ~5–10 seconds.',
+                        components: []
+                    });
+
+                    if (redeployCmd?.logToAdminChannel) {
+                        await redeployCmd.logToAdminChannel(
+                            interaction,
+                            '🔄 Restart Triggered',
+                            `Admin <@${interaction.user.id}> initiated a service restart via \`/redeploy\` prompt.`,
+                            [],
+                            0xFFA500
+                        );
+                    }
+
+                    setTimeout(() => {
+                        process.exit(0);
+                    }, 1000);
+                    return;
+                }
+
+                if (action === 'redeploy_force') {
+                    if (!deployHook) {
+                        return await interaction.update({
+                            content: '❌ **RENDER_DEPLOY_HOOK is not configured.**\nPlease add your Render Deploy Hook URL to your environment variables on Render as `RENDER_DEPLOY_HOOK`.',
+                            components: []
+                        });
+                    }
+
+                    await interaction.update({
+                        content: '🚀 **Force Redeployment Initiated!**\nRender build triggered. CyberBOT will reboot once the new image is ready.',
+                        components: []
+                    });
+
+                    if (redeployCmd?.logToAdminChannel) {
+                        const currentCommit = process.env.RENDER_GIT_COMMIT || 'Unknown';
+                        const shortSha = currentCommit.length > 7 ? currentCommit.substring(0, 7) : currentCommit;
+                        await redeployCmd.logToAdminChannel(
+                            interaction,
+                            '🚀 Force Redeployment Triggered',
+                            `Admin <@${interaction.user.id}> initiated a **Force Redeploy** via \`/redeploy\` prompt.`,
+                            [
+                                { name: '📦 Target Commit', value: `\`${shortSha}\``, inline: true },
+                                { name: '⚙️ Mode', value: '`Manual Force Override`', inline: true }
+                            ]
+                        );
+                    }
+
+                    if (redeployCmd?.triggerDeployHook) {
+                        await redeployCmd.triggerDeployHook(deployHook);
+                    }
+                    return;
+                }
+            }
+
             // Fallback for any unhandled button click so Discord never times out
             if (!interaction.deferred && !interaction.replied) {
                 console.warn(`[Unhandled Button] customId "${interaction.customId}" was not recognized.`);

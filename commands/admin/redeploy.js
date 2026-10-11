@@ -202,53 +202,11 @@ module.exports = {
                     .setEmoji('❌')
             );
 
-            const promptMsg = await interaction.editReply({
+            await interaction.editReply({
                 content: '⚠️ **Could not connect to GitHub to check for new commits.**\nWhat would you like to do?',
                 components: [row]
             });
-
-            try {
-                const confirmation = await promptMsg.awaitMessageComponent({
-                    filter: i => i.user.id === interaction.user.id,
-                    time: 30000
-                });
-
-                if (confirmation.customId === 'redeploy_force') {
-                    await confirmation.update({ content: '🚀 **Force Redeployment Initiated!**\nTriggering rebuild on Render...', components: [] });
-                    
-                    // Log Force Redeploy to Admin Logs Channel
-                    await logToAdminChannel(
-                        interaction,
-                        '🚀 Force Redeployment Triggered',
-                        `Admin <@${interaction.user.id}> initiated a **Force Redeploy** via \`/redeploy\` (GitHub check bypassed).`,
-                        [
-                            { name: '📦 Current Commit', value: currentCommit ? `\`${currentCommit.substring(0, 7)}\`` : '`Unknown`', inline: true },
-                            { name: '⚙️ Mode', value: '`Manual Override`', inline: true }
-                        ]
-                    );
-
-                    await triggerDeployHook(deployHook);
-                    return;
-                } else if (confirmation.customId === 'redeploy_restart_yes') {
-                    await confirmation.update({ content: '🔄 **Restarting CyberBOT...**\nProcess is shutting down. Render will reboot in ~5–10 seconds.', components: [] });
-                    
-                    // Log Restart to Admin Logs Channel
-                    await logToAdminChannel(
-                        interaction,
-                        '🔄 Restart Triggered',
-                        `Admin <@${interaction.user.id}> initiated a service restart via \`/redeploy\` prompt.`,
-                        [],
-                        0xFFA500
-                    );
-
-                    setTimeout(() => process.exit(0), 1000);
-                    return;
-                } else {
-                    return await confirmation.update({ content: '❌ Action cancelled.', components: [] });
-                }
-            } catch (e) {
-                return await interaction.editReply({ content: '⏱️ Prompt timed out. No action taken.', components: [] }).catch(() => null);
-            }
+            return;
         }
 
         const latestSha = latest.sha;
@@ -282,65 +240,10 @@ module.exports = {
                     .setEmoji('❌')
             );
 
-            const promptMsg = await interaction.editReply({
+            await interaction.editReply({
                 content: `⚠️ **No new commits found on GitHub** (already running latest: [\`${shortSha}\`](https://github.com/${repoSlug}/commit/${latestSha})${latestMessage ? ` — *"${latestMessage}"*` : ''}).\n\nWhat would you like to do?`,
                 components: [row]
             });
-
-            try {
-                const confirmation = await promptMsg.awaitMessageComponent({
-                    filter: i => i.user.id === interaction.user.id,
-                    time: 30000
-                });
-
-                if (confirmation.customId === 'redeploy_restart_yes') {
-                    await confirmation.update({
-                        content: '🔄 **Restarting CyberBOT...**\nProcess is shutting down. Render container supervisor will reboot the service in ~5–10 seconds.',
-                        components: []
-                    });
-
-                    // Log Restart to Admin Logs Channel
-                    await logToAdminChannel(
-                        interaction,
-                        '🔄 Restart Triggered',
-                        `Admin <@${interaction.user.id}> initiated a service restart via \`/redeploy\` prompt (no new commits).`,
-                        [],
-                        0xFFA500
-                    );
-
-                    setTimeout(() => {
-                        process.exit(0);
-                    }, 1000);
-                } else if (confirmation.customId === 'redeploy_force') {
-                    await confirmation.update({
-                        content: '🚀 **Force Redeployment Initiated!**\nRender build triggered. CyberBOT will reboot once the new image is ready.',
-                        components: []
-                    });
-
-                    // Log Force Redeploy to Admin Logs Channel
-                    await logToAdminChannel(
-                        interaction,
-                        '🚀 Force Redeployment Triggered',
-                        `Admin <@${interaction.user.id}> initiated a **Force Redeploy** via \`/redeploy\` (up-to-date override).`,
-                        [
-                            { name: '📦 Target Commit', value: `[\`${shortSha}\`](https://github.com/${repoSlug}/commit/${latestSha})`, inline: true },
-                            { name: '⚙️ Mode', value: '`Manual Force Override`', inline: true }
-                        ]
-                    );
-
-                    await triggerDeployHook(deployHook);
-                } else {
-                    await confirmation.update({
-                        content: '❌ Action cancelled. CyberBOT remains online without restarting.',
-                        components: []
-                    });
-                }
-            } catch (timeoutErr) {
-                await interaction.editReply({
-                    content: '⏱️ Prompt timed out. No action taken.',
-                    components: []
-                }).catch(() => null);
-            }
             return;
         }
 
@@ -375,5 +278,7 @@ module.exports = {
             console.error('Error triggering redeployment:', error);
             await interaction.editReply({ content: `❌ Failed to trigger redeployment: \`${error.message}\`` });
         }
-    }
+    },
+    triggerDeployHook,
+    logToAdminChannel
 };
