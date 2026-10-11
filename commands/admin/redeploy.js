@@ -160,6 +160,10 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply({ flags: 64 });
 
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+            return await interaction.editReply({ content: '⛔ Only administrators can use this command.' });
+        }
+
         const deployHook = process.env.RENDER_DEPLOY_HOOK;
         if (!deployHook) {
             return await interaction.editReply({
