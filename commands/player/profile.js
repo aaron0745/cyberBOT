@@ -1,14 +1,12 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const { Models } = require('../../database/mongoose');
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+const { renderProfileCard } = require('./profileCard');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('profile')
         .setDescription('View agent ID card')
-        .addUserOption(option => 
+        .addUserOption(option =>
             option.setName('agent')
                 .setDescription('The agent to view (leave blank for yourself)')
                 .setRequired(false)
@@ -36,7 +34,7 @@ module.exports = {
                 // Fetch actual player stats
                 const scoreDoc = await Models.Score.findOne({ user_id: targetUser.id });
                 const points = scoreDoc ? scoreDoc.points : 0;
-                
+
                 // Rank calculation
                 let rankNum = 0;
                 if (points > 0) {
@@ -80,50 +78,14 @@ module.exports = {
                 };
             }
 
-            // Execute Python Script
-            const scriptPath = path.join(__dirname, '..', '..', 'python_scripts', 'draw_profile.py');
-            const uniqueFilename = `profile_${interaction.user.id}_${Date.now()}.png`;
-            // Support both 'python3' and 'python' commands
-            const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-            const pythonProcess = spawn(pythonCmd, [scriptPath, uniqueFilename], { timeout: 15000 }); // 15 second hard timeout
-            
-            pythonProcess.on('error', async (err) => {
-                console.error('Failed to start Python process:', err);
-                try { await interaction.editReply({ content: '❌ System Error: Python is not installed or accessible.' }); } catch(e){}
-            });
-
-            try {
-                pythonProcess.stdin.write(JSON.stringify(data));
-                pythonProcess.stdin.end();
-            } catch (err) {
-                console.error('Failed to write to Python stdin:', err);
-            }
-
-            pythonProcess.on('close', async (code) => {
-                if (code !== 0) {
-                    console.error('Python script exited with code:', code);
-                    try { await interaction.editReply({ content: '❌ Failed to generate profile card. Make sure `pillow` is installed via pip!' }); } catch(e){}
-                    return;
-                }
-                
-                // Read the generated file
-                const imgPath = path.join(__dirname, '..', '..', uniqueFilename);
-                if (fs.existsSync(imgPath)) {
-                    const attachment = new AttachmentBuilder(imgPath, { name: 'profile.png' });
-                    try {
-                        await interaction.editReply({ files: [attachment] });
-                        fs.unlinkSync(imgPath);
-                    } catch (e) {
-                        console.error('Failed to send attachment:', e);
-                    }
-                } else {
-                    try { await interaction.editReply({ content: '❌ Profile image was not created.' }); } catch(e){}
-                }
-            });
+            // Render the card in-process (no Python needed)
+            const buffer = await renderProfileCard(data);
+            const attachment = new AttachmentBuilder(buffer, { name: 'profile.png' });
+            await interaction.editReply({ files: [attachment] });
 
         } catch (error) {
             console.error(error);
-            try { await interaction.editReply({ content: '❌ An error occurred while generating the profile.' }); } catch(e){}
+            try { await interaction.editReply({ content: '❌ An error occurred while generating the profile.' }); } catch (e) {}
         }
     },
 };
